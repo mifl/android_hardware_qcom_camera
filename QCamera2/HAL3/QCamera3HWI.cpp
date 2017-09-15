@@ -482,6 +482,7 @@ QCamera3HardwareInterface::QCamera3HardwareInterface(uint32_t cameraId,
       mLastCustIntentFrmNum(-1),
       mState(CLOSED),
       mIsDeviceLinked(false),
+      mFlushRestart(true),
       mIsMainCamera(true),
       mLinkedCameraId(0),
       m_pDualCamCmdHeap(NULL),
@@ -4768,7 +4769,11 @@ int QCamera3HardwareInterface::processCaptureRequest(
             pthread_mutex_unlock(&mMutex);
             goto error_exit;
         }
-
+        // get Flush() settting
+        if (meta.exists(QCAMERA3_HAL_FLUSH_RESTART_MODE)) {
+            mFlushRestart = meta.find(QCAMERA3_HAL_FLUSH_RESTART_MODE).data.u8[0];
+            LOGH(" Flush : Setting = %d", mFlushRestart);
+        }
         //update settings from app here
         if (meta.exists(QCAMERA3_DUALCAM_LINK_ENABLE)) {
             mIsDeviceLinked = meta.find(QCAMERA3_DUALCAM_LINK_ENABLE).data.u8[0];
@@ -12306,7 +12311,7 @@ int QCamera3HardwareInterface::flush(
     }
     pthread_mutex_unlock(&hw->mMutex);
 
-    rc = hw->flush(true /* restart channels */ );
+    rc = hw->flush(hw->mFlushRestart);
     LOGD("X");
     return rc;
 }
