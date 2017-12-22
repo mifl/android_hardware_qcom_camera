@@ -91,6 +91,10 @@ namespace qcamera {
 #define MAX_PROCESSED_STREAMS  3
 #endif
 
+#ifdef _DRONE_
+#define DRONE_STEREO_CAMERA_ID (2)
+#endif
+
 /* Batch mode is enabled only if FPS set is equal to or greater than this */
 #ifdef _DRONE_
 #define MIN_FPS_FOR_BATCH_MODE (90)
@@ -1539,6 +1543,11 @@ int QCamera3HardwareInterface::configureStreamsPerfLocked(
 
     mOpMode = streamList->operation_mode;
     LOGD("mOpMode: %d", mOpMode);
+    int32_t fwkDeWarpType = DEWARP_NONE;
+    char ds_prop[PROPERTY_VALUE_MAX];
+    memset(ds_prop, 0, sizeof(ds_prop));
+    property_get("persist.camera.dewarp.type", ds_prop, "0");
+    fwkDeWarpType = (uint8_t)atoi(ds_prop);
 
     mCurrentSceneMode = 0;
 
@@ -1612,6 +1621,7 @@ int QCamera3HardwareInterface::configureStreamsPerfLocked(
     bool bUseCommonFeatureMask = false;
     cam_feature_mask_t commonFeatureMask = 0;
     bool bSmallJpegSize = false;
+    bool bLDCEnable = false;
     uint32_t width_ratio;
     uint32_t height_ratio;
     maxViewfinderSize = gCamCapability[mCameraId]->max_viewfinder_size;
@@ -1719,6 +1729,9 @@ int QCamera3HardwareInterface::configureStreamsPerfLocked(
             }
             m_bEisSupportedSize = (newStream->width <= maxEisWidth) &&
                                   (newStream->height <= maxEisHeight);
+        }
+        if((fwkDeWarpType == true) && (videoWidth > 0) && (videoHeight > 0)) {
+          bLDCEnable = true;
         }
         if (newStream->stream_type == CAMERA3_STREAM_BIDIRECTIONAL ||
                 newStream->stream_type == CAMERA3_STREAM_OUTPUT) {
@@ -2131,9 +2144,9 @@ int QCamera3HardwareInterface::configureStreamsPerfLocked(
                 onlyRaw = false; // There is non-raw stream - bypass flag if set
                 mStreamConfigInfo.type[mStreamConfigInfo.num_streams] = CAM_STREAM_TYPE_SNAPSHOT;
                 // No need to check bSmallJpegSize if ZSL is present since JPEG uses ZSL stream
-                if ((m_bIs4KVideo && !isZsl) || (bSmallJpegSize && !isZsl)) {
+                if ((m_bIs4KVideo && !isZsl) || (bSmallJpegSize && !isZsl) || (bLDCEnable)) {
                      mStreamConfigInfo.postprocess_mask[mStreamConfigInfo.num_streams] =
-                             CAM_QCOM_FEATURE_PP_SUPERSET_HAL3;
+                             CAM_QCOM_FEATURE_PP_SUPERSET_HAL3|CAM_QTI_FEATURE_SW_TNR;
                      /* Remove rotation if it is not supported
                         for 4K LiveVideo snapshot case (online processing) */
                      if (!(gCamCapability[mCameraId]->qcom_supported_feature_mask &
@@ -2417,7 +2430,19 @@ int QCamera3HardwareInterface::configureStreamsPerfLocked(
     property_get("persist.camera.analysis.enable", analysis_prop, "0");
     int32_t analysis_enable = atoi(analysis_prop);
 
-    if ((!onlyRaw) && (analysis_enable) ) {
+#ifdef _DRONE_
+    char stereo_analysis_prop[PROPERTY_VALUE_MAX];
+    memset(stereo_analysis_prop, 0, sizeof(stereo_analysis_prop));
+    /* Disable analysis stram by default for stereo camera */
+    property_get("persist.stereo.analysis.enable", stereo_analysis_prop, "0");
+    int32_t stereo_analysis_enable = atoi(stereo_analysis_prop);
+
+    if (mCameraId == DRONE_STEREO_CAMERA_ID) {
+        analysis_enable &= stereo_analysis_enable;
+    }
+#endif
+
+    if ((!onlyRaw) && (analysis_enable)) {
         cam_feature_mask_t analysisFeatureMask = CAM_QCOM_FEATURE_PP_SUPERSET_HAL3;
         setPAAFSupport(analysisFeatureMask, CAM_STREAM_TYPE_ANALYSIS,
                 gCamCapability[mCameraId]->color_arrangement);
@@ -4362,6 +4387,18 @@ int QCamera3HardwareInterface::processCaptureRequest(
             clear_metadata_buffer(mParameters);
             ADD_SET_PARAM_ENTRY_TO_BATCH(mParameters,
                     CAM_INTF_PARM_HAL_VERSION, hal_version);
+            if (meta.exists(ANDROID_LENS_FOCAL_LENGTH)) {
+                float mode =  meta.find(ANDROID_LENS_FOCAL_LENGTH).data.f[0];
+                ADD_SET_PARAM_ENTRY_TO_BATCH(mParameters,
+                        CAM_INTF_META_LENS_FOCAL_LENGTH, mode);
+                rc = mCameraHandle->ops->set_parms(mCameraHandle->camera_handle,
+                        mParameters);
+                if (rc < 0) {
+                    LOGE("set_parms for unconfigure failed");
+                    pthread_mutex_unlock(&mMutex);
+                    return rc;
+                }
+            }
             ADD_SET_PARAM_ENTRY_TO_BATCH(mParameters,
                     CAM_INTF_META_STREAM_INFO, stream_config_info);
             rc = mCameraHandle->ops->set_parms(mCameraHandle->camera_handle,
@@ -4476,12 +4513,27 @@ int QCamera3HardwareInterface::processCaptureRequest(
                  mStreamConfigInfo.dewarp_type[i] = (cam_dewarp_type_t)fwkDeWarpType;
             } else {
                  mStreamConfigInfo.is_type[i] = IS_TYPE_NONE;
-                 if (mStreamConfigInfo.type[i] == CAM_STREAM_TYPE_VIDEO ) {
+                 if ((mStreamConfigInfo.type[i] == CAM_STREAM_TYPE_VIDEO) ||
+                         ((mStreamConfigInfo.type[i] == CAM_STREAM_TYPE_SNAPSHOT) &&
+                         (fwkDeWarpType == DEWARP_LDC))) {
                      mStreamConfigInfo.dewarp_type[i] = (cam_dewarp_type_t)fwkDeWarpType;
                  } else {
                      mStreamConfigInfo.dewarp_type[i] = DEWARP_NONE;
                  }
             }
+        }
+
+        if (meta.exists(ANDROID_LENS_FOCAL_LENGTH)) {
+            float mode =  meta.find(ANDROID_LENS_FOCAL_LENGTH).data.f[0];
+            if (ADD_SET_PARAM_ENTRY_TO_BATCH(mParameters,
+                    CAM_INTF_META_LENS_FOCAL_LENGTH, mode)) {
+                LOGE("Set Sensor Mode is failed");
+            }
+        }
+        rc = mCameraHandle->ops->set_parms(mCameraHandle->camera_handle,
+                mParameters);
+        if (rc < 0) {
+            LOGE("set_parms for unconfigure failed");
         }
 
         ADD_SET_PARAM_ENTRY_TO_BATCH(mParameters,
@@ -4630,8 +4682,10 @@ int QCamera3HardwareInterface::processCaptureRequest(
         for (List<stream_info_t *>::iterator it = mStreamInfo.begin();
             it != mStreamInfo.end(); it++) {
             QCamera3Channel *channel = (QCamera3Channel *)(*it)->stream->priv;
-            if ((((1U << CAM_STREAM_TYPE_VIDEO) == channel->getStreamTypeMask()) ||
-                       ((1U << CAM_STREAM_TYPE_PREVIEW) == channel->getStreamTypeMask()))) {
+            if (((1U << CAM_STREAM_TYPE_VIDEO) == channel->getStreamTypeMask()) ||
+                       ((1U << CAM_STREAM_TYPE_PREVIEW) == channel->getStreamTypeMask()) ||
+                       (((1U << CAM_STREAM_TYPE_SNAPSHOT) == channel->getStreamTypeMask())&&
+                       (fwkDeWarpType == DEWARP_LDC))) {
                 for (size_t i = 0; i < mStreamConfigInfo.num_streams; i++) {
                     if ( (1U << mStreamConfigInfo.type[i]) == channel->getStreamTypeMask() ) {
                         if(setEis)
@@ -8323,8 +8377,8 @@ int QCamera3HardwareInterface::initStaticMetadata(uint32_t cameraId)
 
     /*should be using focal lengths but sensor doesn't provide that info now*/
     staticInfo.update(ANDROID_LENS_INFO_AVAILABLE_FOCAL_LENGTHS,
-                      &gCamCapability[cameraId]->focal_length,
-                      1);
+                      gCamCapability[cameraId]->focal_lengths,
+                      gCamCapability[cameraId]->focal_lengths_count);
 
     staticInfo.update(ANDROID_LENS_INFO_AVAILABLE_APERTURES,
             gCamCapability[cameraId]->apertures,
@@ -9980,7 +10034,7 @@ camera_metadata_t* QCamera3HardwareInterface::translateCapabilityToMetadata(int 
         focusMode = ANDROID_CONTROL_AF_MODE_CONTINUOUS_PICTURE;
         optStabMode = ANDROID_LENS_OPTICAL_STABILIZATION_MODE_ON;
         edge_mode = ANDROID_EDGE_MODE_HIGH_QUALITY;
-        noise_red_mode = ANDROID_NOISE_REDUCTION_MODE_HIGH_QUALITY;
+        noise_red_mode = ANDROID_NOISE_REDUCTION_MODE_FAST;
         tonemap_mode = ANDROID_TONEMAP_MODE_HIGH_QUALITY;
         cacMode = ANDROID_COLOR_CORRECTION_ABERRATION_MODE_OFF;
         // Order of priority for default CAC is HIGH Quality -> FAST -> OFF
@@ -13375,7 +13429,8 @@ void QCamera3HardwareInterface::setPAAFSupport(
     case CAM_FILTER_ARRANGEMENT_BGGR:
         if ((stream_type == CAM_STREAM_TYPE_PREVIEW) ||
                 (stream_type == CAM_STREAM_TYPE_ANALYSIS) ||
-                (stream_type == CAM_STREAM_TYPE_VIDEO)) {
+                (stream_type == CAM_STREAM_TYPE_VIDEO) ||
+                (stream_type == CAM_STREAM_TYPE_SNAPSHOT)) {
             if (!(feature_mask & CAM_QTI_FEATURE_PPEISCORE))
                 feature_mask |= CAM_QCOM_FEATURE_PAAF;
         }
