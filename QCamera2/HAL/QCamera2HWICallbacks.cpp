@@ -61,6 +61,7 @@ void QCamera2HardwareInterface::zsl_channel_cb(mm_camera_super_buf_t *recvd_fram
 {
     ATRACE_CALL();
     CDBG_HIGH("[KPI Perf] %s: E",__func__);
+    ATRACE_INT("[KPI Perf] X zsl_channel_cb: E",0);
     char value[PROPERTY_VALUE_MAX];
     bool dump_raw = false;
     bool dump_yuv = false;
@@ -217,6 +218,7 @@ void QCamera2HardwareInterface::zsl_channel_cb(mm_camera_super_buf_t *recvd_fram
     pme->m_postprocessor.processData(frame);
 
     CDBG_HIGH("[KPI Perf] %s: X", __func__);
+    ATRACE_INT("[KPI Perf] X zsl_channel_cb: X",1);
 }
 
 /*===========================================================================
@@ -241,6 +243,7 @@ void QCamera2HardwareInterface::capture_channel_cb_routine(mm_camera_super_buf_t
     ATRACE_CALL();
     char value[PROPERTY_VALUE_MAX];
     CDBG_HIGH("[KPI Perf] %s: E PROFILE_YUV_CB_TO_HAL", __func__);
+    ATRACE_INT("[KPI Perf] E PROFILE_YUV_CB_TO_HAL",0);
     bool dump_yuv = false;
     QCamera2HardwareInterface *pme = (QCamera2HardwareInterface *)userdata;
     if (pme == NULL ||
@@ -347,6 +350,8 @@ void QCamera2HardwareInterface::capture_channel_cb_routine(mm_camera_super_buf_t
 /* END of test register face image for face authentication */
 
     CDBG_HIGH("[KPI Perf] %s: X", __func__);
+    ATRACE_INT("[KPI Perf] X PROFILE_YUV_CB_TO_HAL",0);
+
 }
 #ifdef TARGET_TS_MAKEUP
 int QCamera2HardwareInterface::yuvDataRelocate(uint8_t* pSrcBuffer,uint8_t* pDstBuffer,
@@ -574,6 +579,7 @@ void QCamera2HardwareInterface::postproc_channel_cb_routine(mm_camera_super_buf_
 {
     ATRACE_CALL();
     CDBG_HIGH("[KPI Perf] %s: E", __func__);
+    ATRACE_INT("[KPI Perf] E postproc_channel_cb_routine",0);
     QCamera2HardwareInterface *pme = (QCamera2HardwareInterface *)userdata;
     if (pme == NULL ||
         pme->mCameraHandle == NULL ||
@@ -598,7 +604,7 @@ void QCamera2HardwareInterface::postproc_channel_cb_routine(mm_camera_super_buf_
     } else {
         pme->m_postprocessor.processPPData(frame);
     }
-    ATRACE_INT("Camera:Reprocess", 0);
+    ATRACE_INT("[KPI Perf] X postproc_channel_cb_routine",1);
     CDBG_HIGH("[KPI Perf] %s: X", __func__);
 }
 
@@ -622,6 +628,7 @@ void QCamera2HardwareInterface::dual_reproc_channel_cb_routine(mm_camera_super_b
                                                             void *userdata)
 {
     CDBG_HIGH("[KPI Perf] %s: E", __func__);
+    ATRACE_INT("[KPI Perf] E dual_reproc_channel_cb_routine",0);
     QCamera2HardwareInterface *pme = (QCamera2HardwareInterface *)userdata;
     if (pme == NULL ||
         pme->mCameraHandle == NULL ||
@@ -643,6 +650,7 @@ void QCamera2HardwareInterface::dual_reproc_channel_cb_routine(mm_camera_super_b
     pme->m_postprocessor.processPPData(frame);
 
     CDBG_HIGH("[KPI Perf] %s: X", __func__);
+    ATRACE_INT("[KPI Perf] X dual_reproc_channel_cb_routine",1);
 }
 
 /*===========================================================================
@@ -670,6 +678,7 @@ void QCamera2HardwareInterface::preview_stream_cb_routine(mm_camera_super_buf_t 
 {
     ATRACE_CALL();
     CDBG("[KPI Perf] %s : BEGIN", __func__);
+    ATRACE_INT("[KPI Perf] preview_stream_cb_routine : BEGIN",0);
     int err = NO_ERROR;
     QCamera2HardwareInterface *pme = (QCamera2HardwareInterface *)userdata;
     QCameraGrallocMemory *memory = (QCameraGrallocMemory *)super_frame->bufs[0]->mem_info;
@@ -757,6 +766,7 @@ void QCamera2HardwareInterface::preview_stream_cb_routine(mm_camera_super_buf_t 
 
     free(super_frame);
     CDBG("[KPI Perf] %s : END", __func__);
+    ATRACE_INT("[KPI Perf] preview_stream_cb_routine : END",1);
     return;
 }
 
@@ -949,6 +959,7 @@ void QCamera2HardwareInterface::nodisplay_preview_stream_cb_routine(
 {
     ATRACE_CALL();
     CDBG_HIGH("[KPI Perf] %s E",__func__);
+    ATRACE_INT("[KPI Perf] E nodisplay_preview_stream_cb_routine",0);
     QCamera2HardwareInterface *pme = (QCamera2HardwareInterface *)userdata;
     if (pme == NULL ||
         pme->mCameraHandle == NULL ||
@@ -1024,6 +1035,7 @@ void QCamera2HardwareInterface::nodisplay_preview_stream_cb_routine(
     }
     free(super_frame);
     CDBG_HIGH("[KPI Perf] %s X",__func__);
+    ATRACE_INT("[KPI Perf] X nodisplay_preview_stream_cb_routine",1);
 }
 
 /*===========================================================================
@@ -1062,7 +1074,7 @@ void QCamera2HardwareInterface::postview_stream_cb_routine(mm_camera_super_buf_t
     }
 
     CDBG_HIGH("[KPI Perf] %s : BEGIN", __func__);
-
+    ATRACE_INT("[KPI Perf] X postview_stream_cb_routine : BEGIN",0);
     mm_camera_buf_def_t *frame = super_frame->bufs[0];
     if (NULL == frame) {
         ALOGE("%s: preview frame is NLUL", __func__);
@@ -1083,6 +1095,7 @@ void QCamera2HardwareInterface::postview_stream_cb_routine(mm_camera_super_buf_t
 
     free(super_frame);
     CDBG_HIGH("[KPI Perf] %s : END", __func__);
+    ATRACE_INT("[KPI Perf] X postview_stream_cb_routine : END",1);
     return;
 }
 
@@ -1111,6 +1124,7 @@ void QCamera2HardwareInterface::video_stream_cb_routine(mm_camera_super_buf_t *s
     ATRACE_CALL();
     QCameraVideoMemory *videoMemObj = NULL;
     CDBG("[KPI Perf] %s : BEGIN", __func__);
+    ATRACE_INT("[KPI Perf] E video_stream_cb_routine : BEGIN",0);
     QCamera2HardwareInterface *pme = (QCamera2HardwareInterface *)userdata;
     if (pme == NULL ||
         pme->mCameraHandle == NULL ||
@@ -1162,6 +1176,7 @@ void QCamera2HardwareInterface::video_stream_cb_routine(mm_camera_super_buf_t *s
     }
     free(super_frame);
     CDBG("[KPI Perf] %s : END", __func__);
+    ATRACE_INT("[KPI Perf] X video_stream_cb_routine : END",1);
 }
 
 /*===========================================================================
@@ -1187,6 +1202,7 @@ void QCamera2HardwareInterface::snapshot_channel_cb_routine(mm_camera_super_buf_
     QCameraChannel *pChannel = NULL;
 
     CDBG_HIGH("[KPI Perf] %s: E", __func__);
+    ATRACE_INT("[KPI Perf] E snapshot_channel_cb_routine",0);
     QCamera2HardwareInterface *pme = (QCamera2HardwareInterface *)userdata;
     if (pme == NULL ||
         pme->mCameraHandle == NULL ||
@@ -1249,6 +1265,7 @@ void QCamera2HardwareInterface::snapshot_channel_cb_routine(mm_camera_super_buf_
     pme->m_postprocessor.processData(frame);
 
     CDBG_HIGH("[KPI Perf] %s: X", __func__);
+    ATRACE_INT("[KPI Perf] X snapshot_channel_cb_routine",1);
 }
 
 /*===========================================================================
@@ -1276,6 +1293,7 @@ void QCamera2HardwareInterface::raw_stream_cb_routine(mm_camera_super_buf_t * su
 {
     ATRACE_CALL();
     CDBG_HIGH("[KPI Perf] %s : BEGIN", __func__);
+    ATRACE_INT("[KPI Perf] E raw_stream_cb_routine : BEGIN",0);
     QCamera2HardwareInterface *pme = (QCamera2HardwareInterface *)userdata;
     if (pme == NULL ||
         pme->mCameraHandle == NULL ||
@@ -1288,6 +1306,7 @@ void QCamera2HardwareInterface::raw_stream_cb_routine(mm_camera_super_buf_t * su
 
     pme->m_postprocessor.processRawData(super_frame);
     CDBG_HIGH("[KPI Perf] %s : END", __func__);
+    ATRACE_INT("[KPI Perf] X raw_stream_cb_routine : END",1);
 }
 
 /*===========================================================================
@@ -1311,6 +1330,7 @@ void QCamera2HardwareInterface::preview_raw_stream_cb_routine(mm_camera_super_bu
 {
     ATRACE_CALL();
     CDBG_HIGH("[KPI Perf] %s : BEGIN", __func__);
+    ATRACE_INT("[KPI Perf] E preview_raw_stream_cb_routine : BEGIN",0);
     char value[PROPERTY_VALUE_MAX];
     bool dump_raw = false;
 
@@ -1343,6 +1363,7 @@ void QCamera2HardwareInterface::preview_raw_stream_cb_routine(mm_camera_super_bu
     free(super_frame);
 
     CDBG_HIGH("[KPI Perf] %s : END", __func__);
+    ATRACE_INT("[KPI Perf] E preview_raw_stream_cb_routine : END",1);
 }
 
 /*===========================================================================
@@ -1366,6 +1387,7 @@ void QCamera2HardwareInterface::snapshot_raw_stream_cb_routine(mm_camera_super_b
 {
     ATRACE_CALL();
     CDBG_HIGH("[KPI Perf] %s : BEGIN", __func__);
+    ATRACE_INT("[KPI Perf] E snapshot_raw_stream_cb_routine : BEGIN",0);
     char value[PROPERTY_VALUE_MAX];
     bool dump_raw = false;
 
@@ -1398,6 +1420,7 @@ void QCamera2HardwareInterface::snapshot_raw_stream_cb_routine(mm_camera_super_b
     free(super_frame);
 
     CDBG_HIGH("[KPI Perf] %s : END", __func__);
+    ATRACE_INT("[KPI Perf] X snapshot_raw_stream_cb_routine : END",1);
 }
 
 /*===========================================================================
@@ -1423,6 +1446,7 @@ void QCamera2HardwareInterface::metadata_stream_cb_routine(mm_camera_super_buf_t
 {
     ATRACE_CALL();
     CDBG("[KPI Perf] %s : BEGIN", __func__);
+    ATRACE_INT("[KPI Perf] E metadata_stream_cb_routine : BEGIN",0);
     QCamera2HardwareInterface *pme = (QCamera2HardwareInterface *)userdata;
     if (pme == NULL ||
         pme->mCameraHandle == NULL ||
@@ -1719,6 +1743,7 @@ void QCamera2HardwareInterface::metadata_stream_cb_routine(mm_camera_super_buf_t
     free(super_frame);
 
     CDBG("[KPI Perf] %s : END", __func__);
+    ATRACE_INT("[KPI Perf] E metadata_stream_cb_routine : END",1);
 }
 
 /*===========================================================================
@@ -1746,6 +1771,7 @@ void QCamera2HardwareInterface::reprocess_stream_cb_routine(mm_camera_super_buf_
 {
     ATRACE_CALL();
     CDBG_HIGH("[KPI Perf] %s: E", __func__);
+    ATRACE_INT("[KPI Perf] reprocess_stream_cb_routine : E",0);
     QCamera2HardwareInterface *pme = (QCamera2HardwareInterface *)userdata;
     if (pme == NULL ||
         pme->mCameraHandle == NULL ||
@@ -1759,6 +1785,7 @@ void QCamera2HardwareInterface::reprocess_stream_cb_routine(mm_camera_super_buf_
     pme->m_postprocessor.processPPData(super_frame);
 
     CDBG_HIGH("[KPI Perf] %s: X", __func__);
+    ATRACE_INT("[KPI Perf] reprocess_stream_cb_routine : X",1);
 }
 
 /*===========================================================================
@@ -2107,6 +2134,7 @@ void QCamera2HardwareInterface::debugShowPreviewFPS()
         n_pFps = (((double)(n_pFrameCount - n_pLastFrameCount)) *
                 (double)(s2ns(1))) / (double)diff;
         CDBG_HIGH("[KPI Perf] %s: PROFILE_PREVIEW_FRAMES_PER_SECOND : %.4f", __func__, n_pFps);
+        ATRACE_INT("[KPI Perf] PROFILE_PREVIEW_FRAMES_PER_SECOND : %.4f",n_pFps);
         n_pLastFpsTime = now;
         n_pLastFrameCount = n_pFrameCount;
     }

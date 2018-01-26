@@ -296,6 +296,8 @@ int QCamera2HardwareInterface::start_preview(struct camera_device *device)
         return BAD_VALUE;
     }
     CDBG_HIGH("[KPI Perf] %s: E PROFILE_START_PREVIEW", __func__);
+    ATRACE_INT("[KPI Perf] E PROFILE_START_PREVIEW",0);
+
     hw->lockAPI();
     qcamera_api_result_t apiResult;
     qcamera_sm_evt_enum_t evt = QCAMERA_SM_EVT_START_PREVIEW;
@@ -310,6 +312,7 @@ int QCamera2HardwareInterface::start_preview(struct camera_device *device)
     hw->unlockAPI();
     hw->m_bPreviewStarted = true;
     CDBG_HIGH("[KPI Perf] %s: X", __func__);
+    ATRACE_INT("[KPI Perf] X PROFILE_START_PREVIEW",1);
     return ret;
 }
 
@@ -333,6 +336,7 @@ void QCamera2HardwareInterface::stop_preview(struct camera_device *device)
         return;
     }
     CDBG_HIGH("[KPI Perf] %s: E PROFILE_STOP_PREVIEW", __func__);
+    ATRACE_INT("[KPI Perf] E PROFILE_STOP_PREVIEW",0);
     hw->lockAPI();
     qcamera_api_result_t apiResult;
     int32_t ret = hw->processAPI(QCAMERA_SM_EVT_STOP_PREVIEW, NULL);
@@ -341,6 +345,7 @@ void QCamera2HardwareInterface::stop_preview(struct camera_device *device)
     }
     hw->unlockAPI();
     CDBG_HIGH("[KPI Perf] %s: X", __func__);
+    ATRACE_INT("[KPI Perf] X PROFILE_STOP_PREVIEW",1);
 }
 
 /*===========================================================================
@@ -436,6 +441,8 @@ int QCamera2HardwareInterface::start_recording(struct camera_device *device)
         return BAD_VALUE;
     }
     CDBG_HIGH("[KPI Perf] %s: E PROFILE_START_RECORDING", __func__);
+    ATRACE_INT("[KPI Perf] E PROFILE_START_RECORDING",0);
+
     hw->lockAPI();
     qcamera_api_result_t apiResult;
     ret = hw->processAPI(QCAMERA_SM_EVT_START_RECORDING, NULL);
@@ -446,6 +453,7 @@ int QCamera2HardwareInterface::start_recording(struct camera_device *device)
     hw->unlockAPI();
     hw->m_bRecordStarted = true;
     CDBG_HIGH("[KPI Perf] %s: X", __func__);
+    ATRACE_INT("[KPI Perf] X PROFILE_START_RECORDING",1);
     return ret;
 }
 
@@ -469,6 +477,8 @@ void QCamera2HardwareInterface::stop_recording(struct camera_device *device)
         return;
     }
     CDBG_HIGH("[KPI Perf] %s: E PROFILE_STOP_RECORDING", __func__);
+    ATRACE_INT("[KPI Perf] E PROFILE_STOP_RECORDING",0);
+
     hw->lockAPI();
     qcamera_api_result_t apiResult;
     int32_t ret = hw->processAPI(QCAMERA_SM_EVT_STOP_RECORDING, NULL);
@@ -477,6 +487,7 @@ void QCamera2HardwareInterface::stop_recording(struct camera_device *device)
     }
     hw->unlockAPI();
     CDBG_HIGH("[KPI Perf] %s: X", __func__);
+    ATRACE_INT("[KPI Perf] X PROFILE_STOP_RECORDING",1);
 }
 
 /*===========================================================================
@@ -573,6 +584,8 @@ int QCamera2HardwareInterface::auto_focus(struct camera_device *device)
         return BAD_VALUE;
     }
     CDBG_HIGH("[KPI Perf] %s : E PROFILE_AUTO_FOCUS", __func__);
+    ATRACE_INT("[KPI Perf] E PROFILE_AUTO_FOCUS",0);
+
     if (hw->mParameters.isAFRunning()) {
         CDBG_HIGH("[KPI_Perf] %s : X AutoFocus is already active, returning!!",
                    __func__);
@@ -587,7 +600,7 @@ int QCamera2HardwareInterface::auto_focus(struct camera_device *device)
     }
     hw->unlockAPI();
     CDBG_HIGH("[KPI Perf] %s : X", __func__);
-
+    ATRACE_INT("[KPI Perf] X PROFILE_AUTO_FOCUS",1);
     return ret;
 }
 
@@ -614,6 +627,8 @@ int QCamera2HardwareInterface::cancel_auto_focus(struct camera_device *device)
         return BAD_VALUE;
     }
     CDBG_HIGH("[KPI Perf] %s : E PROFILE_CANCEL_AUTO_FOCUS", __func__);
+    ATRACE_INT("[KPI Perf] E PROFILE_CANCEL_AUTO_FOCUS",0);
+
     hw->lockAPI();
     qcamera_api_result_t apiResult;
     ret = hw->processAPI(QCAMERA_SM_EVT_STOP_AUTO_FOCUS, NULL);
@@ -623,6 +638,8 @@ int QCamera2HardwareInterface::cancel_auto_focus(struct camera_device *device)
     }
     hw->unlockAPI();
     CDBG_HIGH("[KPI Perf] %s : X", __func__);
+    ATRACE_INT("[KPI Perf] X PROFILE_CANCEL_AUTO_FOCUS",1);
+
     return ret;
 }
 
@@ -649,6 +666,8 @@ int QCamera2HardwareInterface::take_picture(struct camera_device *device)
         return BAD_VALUE;
     }
     CDBG_HIGH("[KPI Perf] %s: E PROFILE_TAKE_PICTURE", __func__);
+    ATRACE_INT("[KPI Perf] E PROFILE_TAKE_PICTURE",0);
+
     hw->lockAPI();
     qcamera_api_result_t apiResult;
 
@@ -675,6 +694,8 @@ int QCamera2HardwareInterface::take_picture(struct camera_device *device)
 
     hw->unlockAPI();
     CDBG_HIGH("[KPI Perf] %s: X", __func__);
+    ATRACE_INT("[KPI Perf] X PROFILE_TAKE_PICTURE",1);
+
     return ret;
 }
 
@@ -701,6 +722,8 @@ int QCamera2HardwareInterface::cancel_picture(struct camera_device *device)
         return BAD_VALUE;
     }
     CDBG_HIGH("[KPI Perf] %s: E PROFILE_CANCEL_PICTURE", __func__);
+    ATRACE_INT("[KPI Perf] E PROFILE_CANCEL_PICTURE",0);
+
     hw->lockAPI();
     qcamera_api_result_t apiResult;
     ret = hw->processAPI(QCAMERA_SM_EVT_CANCEL_PICTURE, NULL);
@@ -710,6 +733,8 @@ int QCamera2HardwareInterface::cancel_picture(struct camera_device *device)
     }
     hw->unlockAPI();
     CDBG_HIGH("[KPI Perf] %s: X", __func__);
+    ATRACE_INT("[KPI Perf] X PROFILE_CANCEL_PICTURE",1);
+
     return ret;
 }
 
@@ -921,6 +946,7 @@ int QCamera2HardwareInterface::close_camera_device(hw_device_t *hw_dev)
     ATRACE_CALL();
     int ret = NO_ERROR;
     CDBG_HIGH("[KPI Perf] %s: E",__func__);
+    ATRACE_INT("[KPI Perf] E close_camera_device",0);
     QCamera2HardwareInterface *hw =
         reinterpret_cast<QCamera2HardwareInterface *>(
             reinterpret_cast<camera_device_t *>(hw_dev)->priv);
@@ -931,6 +957,7 @@ int QCamera2HardwareInterface::close_camera_device(hw_device_t *hw_dev)
     delete hw;
 
     CDBG_HIGH("[KPI Perf] %s: X",__func__);
+    ATRACE_INT("[KPI Perf] X close_camera_device",1);
     return ret;
 }
 
@@ -1136,6 +1163,7 @@ int QCamera2HardwareInterface::openCamera(struct hw_device_t **hw_device)
         return PERMISSION_DENIED;
     }
     CDBG_HIGH("[KPI Perf] %s: E PROFILE_OPEN_CAMERA camera id %d", __func__,mCameraId);
+    ATRACE_INT("[KPI Perf] E PROFILE_OPEN_CAMERA camera id:",mCameraId);
     rc = openCamera();
     if (rc == NO_ERROR){
         *hw_device = &mCameraDevice.common;
@@ -1145,6 +1173,7 @@ int QCamera2HardwareInterface::openCamera(struct hw_device_t **hw_device)
     }
     else
         *hw_device = NULL;
+    ATRACE_INT("[KPI Perf] X PROFILE_OPEN_CAMERA camera id:",mCameraId);
     return rc;
 }
 
@@ -7040,8 +7069,10 @@ int32_t QCamera2HardwareInterface::prepareHardwareForSnapshot(int32_t afNeeded)
 {
     ATRACE_CALL();
     CDBG_HIGH("[KPI Perf] %s: Prepare hardware such as LED",__func__);
+    ATRACE_INT("[KPI Perf] E Prepare hardware such as LED afNeeded:",afNeeded);
     return mCameraHandle->ops->prepare_snapshot(mCameraHandle->camera_handle,
                                                 afNeeded);
+    ATRACE_INT("[KPI Perf] X Prepare hardware such as LED afNeeded:",afNeeded);
 }
 
 /*===========================================================================
