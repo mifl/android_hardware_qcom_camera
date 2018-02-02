@@ -2351,6 +2351,10 @@ int32_t QCameraStateMachine::procEvtPicTakingState(qcamera_sm_evt_enum_t evt,
                     m_parent->m_bPreviewStarted = true;
                     applyDelayedMsgs();
                     rc = m_parent->startPreview();
+                    if (NO_ERROR == rc) {
+                        //add for non-zsl preview showing before jpeg done.
+                         m_state = QCAMERA_SM_STATE_PREVIEW_PIC_TAKING;
+                    }
                 }
 
                 /* set internal preivew restarted flag here,
