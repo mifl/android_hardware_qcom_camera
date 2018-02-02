@@ -1822,6 +1822,10 @@ int32_t QCameraStateMachine::procEvtPicTakingState(qcamera_sm_evt_enum_t evt,
                 if (NO_ERROR == rc) {
                     m_parent->m_bPreviewStarted = true;
                     rc = m_parent->startPreview();
+                    if (NO_ERROR == rc) {
+                        //add for non-zsl preview showing before jpeg done.
+                         m_state = QCAMERA_SM_STATE_PREVIEW_PIC_TAKING;
+                    }
                 }
             }
 
