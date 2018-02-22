@@ -1553,34 +1553,46 @@ OMX_ERRORTYPE mm_jpeg_session_config_common(mm_jpeg_job_session_t *p_session)
     return rc;
   }
 
-  LOGD("Num of exif entries passed from HAL: %d",
-      (int)p_jobparams->exif_info.numOfEntries);
-  if (p_jobparams->exif_info.numOfEntries > 0) {
-    rc = OMX_SetConfig(p_session->omx_handle, exif_idx,
-        &p_jobparams->exif_info);
+  if (p_jobparams->disable_maker_note){
+    LOGD("The maker note data is disabled");
+    exif_info.numOfEntries = 0;
+    exif_info.exif_data = &p_session->exif_info_local[0];
+    p_session->exif_count_local = (int)exif_info.numOfEntries;
+    rc = OMX_SetConfig(p_session->omx_handle, exif_idx, &exif_info);
     if (OMX_ErrorNone != rc) {
       LOGE("Error %d", rc);
       return rc;
     }
-  }
-  /*parse aditional exif data from the metadata*/
-  exif_info.numOfEntries = 0;
-  exif_info.exif_data = &p_session->exif_info_local[0];
-  process_meta_data(p_jobparams->p_metadata, &exif_info,
-    &p_jobparams->cam_exif_params, p_jobparams->hal_version);
-  /* After Parse metadata */
-  p_session->exif_count_local = (int)exif_info.numOfEntries;
+  } else {
+    LOGD("Num of exif entries passed from HAL: %d",
+        (int)p_jobparams->exif_info.numOfEntries);
+    if (p_jobparams->exif_info.numOfEntries > 0) {
+      rc = OMX_SetConfig(p_session->omx_handle, exif_idx,
+          &p_jobparams->exif_info);
+      if (OMX_ErrorNone != rc) {
+        LOGE("Error %d", rc);
+        return rc;
+      }
+    }
+    /*parse aditional exif data from the metadata*/
+    exif_info.numOfEntries = 0;
+    exif_info.exif_data = &p_session->exif_info_local[0];
+    process_meta_data(p_jobparams->p_metadata, &exif_info,
+      &p_jobparams->cam_exif_params, p_jobparams->hal_version);
+    /* After Parse metadata */
+    p_session->exif_count_local = (int)exif_info.numOfEntries;
 
-  if (exif_info.numOfEntries > 0) {
-    /* set exif tags */
-    LOGD("exif tags from metadata count %d",
-      (int)exif_info.numOfEntries);
+    if (exif_info.numOfEntries > 0) {
+      /* set exif tags */
+      LOGD("exif tags from metadata count %d",
+        (int)exif_info.numOfEntries);
 
-    rc = OMX_SetConfig(p_session->omx_handle, exif_idx,
-      &exif_info);
-    if (OMX_ErrorNone != rc) {
-      LOGE("Error %d", rc);
-      return rc;
+      rc = OMX_SetConfig(p_session->omx_handle, exif_idx,
+        &exif_info);
+      if (OMX_ErrorNone != rc) {
+        LOGE("Error %d", rc);
+        return rc;
+      }
     }
   }
 
