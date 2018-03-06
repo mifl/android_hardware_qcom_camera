@@ -1164,6 +1164,7 @@ int QCamera3HardwareInterface::validateStreamDimensions(
             }
             break;
         case HAL_PIXEL_FORMAT_YCbCr_420_888:
+        case HAL_PIXEL_FORMAT_YCbCr_422_888:
         case HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED:
         default:
             if (newStream->stream_type == CAMERA3_STREAM_BIDIRECTIONAL
@@ -1773,6 +1774,7 @@ int QCamera3HardwareInterface::configureStreamsPerfLocked(
                 }
                 break;
             case HAL_PIXEL_FORMAT_YCbCr_420_888:
+            case HAL_PIXEL_FORMAT_YCbCr_422_888:
                 processedStreamCnt++;
                 if (isOnEncoder(maxViewfinderSize, newStream->width,
                         newStream->height)) {
@@ -1948,8 +1950,8 @@ int QCamera3HardwareInterface::configureStreamsPerfLocked(
         /* Covers YUV reprocess */
         if (inputStream != NULL) {
             if (newStream->stream_type == CAMERA3_STREAM_OUTPUT
-                    && newStream->format == HAL_PIXEL_FORMAT_YCbCr_420_888
-                    && inputStream->format == HAL_PIXEL_FORMAT_YCbCr_420_888
+                    && (newStream->format == HAL_PIXEL_FORMAT_YCbCr_420_888 || newStream->format == HAL_PIXEL_FORMAT_YCbCr_422_888)
+                    && (inputStream->format == HAL_PIXEL_FORMAT_YCbCr_420_888 || inputStream->format == HAL_PIXEL_FORMAT_YCbCr_422_888)
                     && inputStream->width == newStream->width
                     && inputStream->height == newStream->height) {
                 if (zslStream != NULL) {
@@ -2122,6 +2124,7 @@ int QCamera3HardwareInterface::configureStreamsPerfLocked(
             }
             break;
             case HAL_PIXEL_FORMAT_YCbCr_420_888:
+            case HAL_PIXEL_FORMAT_YCbCr_422_888:
                 onlyRaw = false; // There is non-raw stream - bypass flag if set
                 mStreamConfigInfo.type[mStreamConfigInfo.num_streams] = CAM_STREAM_TYPE_CALLBACK;
                 if(mOpMode == QCAMERA3_VENDOR_STREAM_CONFIGURATION_PP_DISABLED_MODE) {
@@ -2232,7 +2235,8 @@ int QCamera3HardwareInterface::configureStreamsPerfLocked(
                     LOGD("ZSL usage flag skipping");
                 }
                 else if (newStream == zslStream
-                        || newStream->format == HAL_PIXEL_FORMAT_YCbCr_420_888) {
+                        || newStream->format == HAL_PIXEL_FORMAT_YCbCr_420_888
+                        || newStream->format == HAL_PIXEL_FORMAT_YCbCr_422_888) {
                     newStream->usage |= GRALLOC_USAGE_HW_CAMERA_ZSL;
                 } else
                     newStream->usage |= GRALLOC_USAGE_HW_CAMERA_WRITE;
@@ -2316,7 +2320,8 @@ int QCamera3HardwareInterface::configureStreamsPerfLocked(
                         newStream->priv = channel;
                     }
                     break;
-                case HAL_PIXEL_FORMAT_YCbCr_420_888: {
+                case HAL_PIXEL_FORMAT_YCbCr_420_888:
+                case HAL_PIXEL_FORMAT_YCbCr_422_888: {
                     channel = new QCamera3YUVChannel(mCameraHandle->camera_handle,
                             mChannelHandle,
                             mCameraHandle->ops, captureResultCb,
@@ -5049,7 +5054,7 @@ no_error:
         if ((1U << CAM_STREAM_TYPE_VIDEO) == channel->getStreamTypeMask()) {
             isVidBufRequested = true;
         }
-        if (((output.stream->format) == HAL_PIXEL_FORMAT_YCbCr_420_888) ||
+        if (((output.stream->format) == HAL_PIXEL_FORMAT_YCbCr_420_888 || (output.stream->format) == HAL_PIXEL_FORMAT_YCbCr_422_888) ||
                 ((output.stream->format) == HAL_PIXEL_FORMAT_BLOB)) {
             if(request->input_buffer != NULL) {
                 camera3_stream_buffer_t *inputbuf;
@@ -5316,7 +5321,8 @@ no_error:
                 pendingBufferIter->need_metadata = true;
                 streams_need_metadata++;
             }
-        } else if (output.stream->format == HAL_PIXEL_FORMAT_YCbCr_420_888) {
+        } else if (output.stream->format == HAL_PIXEL_FORMAT_YCbCr_420_888
+                    || output.stream->format == HAL_PIXEL_FORMAT_YCbCr_422_888) {
             bool needMetadata = false;
             QCamera3YUVChannel *yuvChannel = (QCamera3YUVChannel *)channel;
             rc = yuvChannel->request(output.buffer, frameNumber,

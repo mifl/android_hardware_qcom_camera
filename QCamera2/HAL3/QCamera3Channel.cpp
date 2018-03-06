@@ -692,7 +692,7 @@ cam_dewarp_type_t QCamera3Channel::getDewarpType()
  *
  *==========================================================================*/
 cam_format_t QCamera3Channel::getStreamDefaultFormat(cam_stream_type_t type,
-        uint32_t width, uint32_t height)
+        uint32_t width, uint32_t height, int32_t format)
 {
     cam_format_t streamFormat;
     QCamera3HardwareInterface* hal_obj = (QCamera3HardwareInterface*)mUserData;
@@ -739,12 +739,16 @@ cam_format_t QCamera3Channel::getStreamDefaultFormat(cam_stream_type_t type,
         break;
     }
     case CAM_STREAM_TYPE_SNAPSHOT:
-        streamFormat = CAM_FORMAT_YUV_420_NV21;
+            streamFormat = CAM_FORMAT_YUV_420_NV21;
         break;
     case CAM_STREAM_TYPE_CALLBACK:
         /* Changed to macro to ensure format sent to gralloc for callback
         is also changed if the preview format is changed at camera HAL */
-        streamFormat = CALLBACK_STREAM_FORMAT;
+        if (format == HAL_PIXEL_FORMAT_YCbCr_422_888){
+            streamFormat = CAM_FORMAT_YUV_422_NV16;
+        } else {
+            streamFormat = CALLBACK_STREAM_FORMAT;
+        }
         break;
     case CAM_STREAM_TYPE_RAW:
         streamFormat = hal_obj->mRdiModeFmt;
@@ -1593,6 +1597,7 @@ int32_t QCamera3ProcessingChannel::translateStreamTypeAndFormat(camera3_stream_t
 {
     switch (stream->format) {
         case HAL_PIXEL_FORMAT_YCbCr_420_888:
+        case HAL_PIXEL_FORMAT_YCbCr_422_888:
             if(stream->stream_type == CAMERA3_STREAM_INPUT){
                 streamType = CAM_STREAM_TYPE_SNAPSHOT;
                 streamFormat = getStreamDefaultFormat(CAM_STREAM_TYPE_SNAPSHOT,
@@ -1600,7 +1605,7 @@ int32_t QCamera3ProcessingChannel::translateStreamTypeAndFormat(camera3_stream_t
             } else {
                 streamType = CAM_STREAM_TYPE_CALLBACK;
                 streamFormat = getStreamDefaultFormat(CAM_STREAM_TYPE_CALLBACK,
-                        stream->width, stream->height);
+                        stream->width, stream->height, stream->format);
             }
             break;
         case HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED:
@@ -2851,7 +2856,7 @@ int32_t QCamera3YUVChannel::initialize(cam_is_type_t isType)
 
     mIsType  = isType;
     mStreamFormat = getStreamDefaultFormat(CAM_STREAM_TYPE_CALLBACK,
-            mCamera3Stream->width, mCamera3Stream->height);
+            mCamera3Stream->width, mCamera3Stream->height, mCamera3Stream->format);
     streamDim.width = mCamera3Stream->width;
     streamDim.height = mCamera3Stream->height;
 
