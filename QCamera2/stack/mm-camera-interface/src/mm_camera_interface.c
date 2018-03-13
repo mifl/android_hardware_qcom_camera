@@ -1502,7 +1502,7 @@ uint8_t get_num_of_cameras()
                         0x1 for HAL
                         0x10 for mm-camera-interface
                         0x100 for mm-jpeg-interface  */
-    property_get("persist.camera.hal.debug.mask", prop, "268435463"); // 0x10000007=268435463
+    property_get("persist.camera.hal.debug.mask", prop, "7"); // 0x10000007=268435463
     temp = (uint32_t) atoi(prop);
     log_level = ((temp >> 28) & 0xF);
     debug_mask = (temp & HAL_DEBUG_MASK_MM_CAMERA_INTERFACE);
