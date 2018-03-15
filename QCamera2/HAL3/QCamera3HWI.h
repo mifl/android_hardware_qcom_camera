@@ -401,7 +401,8 @@ private:
 
     static void setPAAFSupport(cam_feature_mask_t& feature_mask,
             cam_stream_type_t stream_type,
-            cam_color_filter_arrangement_t filter_arrangement);
+            cam_color_filter_arrangement_t filter_arrangement,
+            bool bLDCEnable);
     int32_t setSensorHDR(metadata_buffer_t *hal_metadata, bool enable,
             bool isVideoHdrEnable = false);
     void cleanLastPendingRequest();
