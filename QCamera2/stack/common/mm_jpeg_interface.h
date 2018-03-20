@@ -322,6 +322,9 @@ typedef struct {
   this info will be used to perform cache ops*/
   mm_jpeg_buf_usage_t buf_usage;
 
+  /* disable maker note data in exif */
+  bool disable_maker_note;
+
 } mm_jpeg_encode_job_t;
 
 typedef struct {
