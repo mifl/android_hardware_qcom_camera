@@ -33,9 +33,7 @@
 #include <cutils/properties.h>
 
 // Camera dependencies
-#include "QCamera2HWI.h"
-#include "QCameraDisplay.h"
-
+#include <cutils/properties.h>
 extern "C" {
 #include "mm_camera_dbg.h"
 }
