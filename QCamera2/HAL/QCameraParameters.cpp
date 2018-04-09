@@ -9368,6 +9368,14 @@ int32_t QCameraParameters::setIntEvent(cam_int_evt_params_t params)
  *==========================================================================*/
 int32_t QCameraParameters::setFaceDetection(bool enabled)
 {
+    uint32_t requested_faces = (uint32_t)getInt(KEY_QC_MAX_NUM_REQUESTED_FACES);
+
+    if(enabled && 0 == requested_faces) {
+        ALOGE("%s: face detection is not supported",__func__);
+        m_nFaceProcMask &= ~CAM_FACE_PROCESS_MASK_DETECTION;
+        return BAD_VALUE;
+    }
+
     uint32_t faceProcMask = m_nFaceProcMask;
     // set face detection mask
     if (enabled) {
@@ -9384,7 +9392,6 @@ int32_t QCameraParameters::setFaceDetection(bool enabled)
     m_nFaceProcMask = faceProcMask;
 
     // set parm for face detection
-    uint32_t requested_faces = (uint32_t)getInt(KEY_QC_MAX_NUM_REQUESTED_FACES);
     cam_fd_set_parm_t fd_set_parm;
     memset(&fd_set_parm, 0, sizeof(cam_fd_set_parm_t));
     fd_set_parm.fd_mode = faceProcMask;
