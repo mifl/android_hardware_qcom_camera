@@ -41,6 +41,7 @@
 #include <media/msm_cam_sensor.h>
 #include <cutils/properties.h>
 #include <stdlib.h>
+#include <sys/sysinfo.h>
 
 #include "mm_camera_dbg.h"
 #include "mm_camera_interface.h"
@@ -56,6 +57,7 @@ static uint16_t g_handler_history_count = 0; /* history count for handler */
 volatile uint32_t gMmCameraIntfLogLevel = 0;
 
 #define CAM_SENSOR_FORMAT_MASK (1U<<25) // 25th bit tells whether its YUV sensor or not
+#define MAX_RAM_SIZE 256*1024*1024
 
 /*===========================================================================
  * FUNCTION   : mm_camera_util_generate_handler
@@ -1340,6 +1342,11 @@ void get_sensor_info()
     struct media_device_info mdev_info;
     int num_media_devices = 0;
     size_t num_cameras = 0;
+    struct sysinfo info;
+    unsigned long int ramSize = 0;
+
+    if (!sysinfo(&info))
+        ramSize = info.totalram ;
 
     CDBG("%s : E", __func__);
     /* lock the mutex */
@@ -1387,8 +1394,10 @@ void get_sensor_info()
             if(entity.type == MEDIA_ENT_T_V4L2_SUBDEV &&
                 entity.group_id == MSM_CAMERA_SUBDEV_SENSOR) {
                 temp = entity.flags >> 8;
-                mount_angle = (temp & 0xFF) * 90;
                 facing = (temp & 0xFF00) >> 8;
+                if (ramSize && ramSize < MAX_RAM_SIZE && (facing == 1))
+                    temp += 2;
+                mount_angle = (temp & 0xFF) * 90;
                 is_yuv = ((entity.flags & CAM_SENSOR_FORMAT_MASK) ?
                         CAM_SENSOR_YUV:CAM_SENSOR_RAW);
                 ALOGD("index = %u flag = %x mount_angle = %u "
