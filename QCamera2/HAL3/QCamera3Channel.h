@@ -134,7 +134,7 @@ public:
     void setDewarpType(cam_dewarp_type_t val);
 
     cam_format_t getStreamDefaultFormat(cam_stream_type_t type,
-            uint32_t width, uint32_t height);
+            uint32_t width, uint32_t height, int32_t format = 0);
     cam_format_t convertToPlain16Format(cam_format_t fmt);
     virtual int32_t timeoutFrame(__unused uint32_t frameNumber) = 0;
 
