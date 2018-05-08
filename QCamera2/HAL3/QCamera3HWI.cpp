@@ -4465,7 +4465,7 @@ int QCamera3HardwareInterface::processCaptureRequest(
             int32_t fps_max =
                     (int32_t) meta.find(ANDROID_CONTROL_AE_TARGET_FPS_RANGE).data.i32[1];
             if (CAMERA3_STREAM_CONFIGURATION_CONSTRAINED_HIGH_SPEED_MODE == mOpMode) {
-                if(fps_max > 60)
+                if(fps_max > 90)
                     m_bEisEnable = false;
             }
         }
