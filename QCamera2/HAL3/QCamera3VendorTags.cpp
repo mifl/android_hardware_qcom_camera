@@ -334,6 +334,7 @@ vendor_tag_info_t qcamera3_luma_info[QCAMERA3_LUMA_INFO_END-
     { "target_luma", TYPE_FLOAT },
     { "current_luma", TYPE_FLOAT },
     { "luma_range", TYPE_FLOAT},
+    { "lux_idx",  TYPE_FLOAT},
 };
 
 vendor_tag_info_t qcamera3_lcac_enable[QCAMERA3_LCAC_PROCESSING_END-
@@ -533,6 +534,9 @@ uint32_t qcamera3_all_tags[] = {
     (uint32_t)QCAMERA3_TARGET_LUMA,
     (uint32_t)QCAMERA3_CURRENT_LUMA,
     (uint32_t)QCAMERA3_LUMA_RANGE,
+
+     //QCAMERA3_CURRENT_LUX_IDX
+    (uint32_t)QCAMERA3_CURRENT_LUX_IDX,
 
     //QCAMERA3_LCAC_PROCESSING_END
     (uint32_t)QCAMERA3_LCAC_PROCESSING_ENABLE,

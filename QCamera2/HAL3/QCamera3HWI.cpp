@@ -7305,6 +7305,7 @@ QCamera3HardwareInterface::translateFromHalMetadata(
             CAM_INTF_META_AEC_INFO, metadata) {
         camMetadata.update(QCAMERA3_TARGET_LUMA, &(ae_params->luma_info.target_luma), 1);
         camMetadata.update(QCAMERA3_CURRENT_LUMA, &(ae_params->luma_info.curr_luma), 1);
+        camMetadata.update(QCAMERA3_CURRENT_LUX_IDX, &(ae_params->luma_info.lux_idx), 1);
         float luma_range[2];
         luma_range[0] = (float) ae_params->luma_info.luma_range.min_luma;
         luma_range[1] = (float) ae_params->luma_info.luma_range.max_luma;

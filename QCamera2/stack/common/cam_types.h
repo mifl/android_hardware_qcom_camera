@@ -622,6 +622,7 @@ typedef struct {
   float target_luma;
   float curr_luma;
   cam_luma_range_t luma_range;
+  float lux_idx;
 } cam_luma_info_t;
 
 typedef struct {
