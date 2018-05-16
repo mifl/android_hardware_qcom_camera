@@ -4710,8 +4710,11 @@ int QCamera3HardwareInterface::processCaptureRequest(
                 } else {
                     is_type = IS_TYPE_NONE;
                 }
-                 mStreamConfigInfo.is_type[i] = is_type;
-                 mStreamConfigInfo.dewarp_type[i] = (cam_dewarp_type_t)fwkDeWarpType;
+                mStreamConfigInfo.is_type[i] = is_type;
+                mStreamConfigInfo.dewarp_type[i] = (cam_dewarp_type_t)fwkDeWarpType;
+                LOGD("stream type %d pp_mask: 0x%" PRIx64, mStreamConfigInfo.type[i], mStreamConfigInfo.postprocess_mask[i]);
+                if (mStreamConfigInfo.type[i] == CAM_STREAM_TYPE_SNAPSHOT && isTypeVideo >= IS_TYPE_EIS_2_0)
+                    mStreamConfigInfo.postprocess_mask[i] &= ~CAM_QCOM_FEATURE_PAAF;
             } else {
                  mStreamConfigInfo.is_type[i] = IS_TYPE_NONE;
                  if ((mStreamConfigInfo.type[i] == CAM_STREAM_TYPE_VIDEO) ||
