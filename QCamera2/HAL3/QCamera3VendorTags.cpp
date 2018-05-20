@@ -74,7 +74,8 @@ enum qcamera3_ext_tags qcamera3_ext3_section_bounds[QCAMERA3_SECTIONS_END -
         QCAMERA3_STRICT_ANTIBANDING_END,
         QCAMERA3_AWB_ROI_END,
         QCAMERA3_LUMA_INFO_END,
-        QCAMERA3_LCAC_PROCESSING_END
+        QCAMERA3_LCAC_PROCESSING_END,
+        QCAMERA3_HAL_FLUSH_RESTART_END
 };
 
 typedef struct vendor_tag_info {
@@ -115,7 +116,8 @@ const char *qcamera3_ext_section_names[QCAMERA3_SECTIONS_END -
     "org.codeaurora.qcamera3.strict_antibanding",
     "org.codeaurora.qcamera3.awb_roi",
     "org.codeaurora.qcamera3.luma_info",
-    "org.codeaurora.qcamera3.lcac_enable"
+    "org.codeaurora.qcamera3.lcac_enable",
+    "org.codeaurora.qcamera3.flush_restart"
 };
 
 vendor_tag_info_t qcamera3_privatedata[QCAMERA3_PRIVATEDATA_END - QCAMERA3_PRIVATEDATA_START] = {
@@ -332,11 +334,17 @@ vendor_tag_info_t qcamera3_luma_info[QCAMERA3_LUMA_INFO_END-
     { "target_luma", TYPE_FLOAT },
     { "current_luma", TYPE_FLOAT },
     { "luma_range", TYPE_FLOAT},
+    { "lux_idx",  TYPE_FLOAT},
 };
 
 vendor_tag_info_t qcamera3_lcac_enable[QCAMERA3_LCAC_PROCESSING_END-
         QCAMERA3_LCAC_PROCESSING_START] = {
     { "lcac_enable", TYPE_BYTE }
+};
+
+vendor_tag_info_t qcamera3_flush_restart[QCAMERA3_HAL_FLUSH_RESTART_END -
+        QCAMERA3_HAL_FLUSH_RESTART_START] = {
+    { "restart_mode", TYPE_BYTE },
 };
 
 
@@ -373,7 +381,8 @@ vendor_tag_info_t *qcamera3_tag_info[QCAMERA3_SECTIONS_END -
     qcamera3_strict_antibanding,
     qcamera3_awb_roi,
     qcamera3_luma_info,
-    qcamera3_lcac_enable
+    qcamera3_lcac_enable,
+    qcamera3_flush_restart
 };
 
 uint32_t qcamera3_all_tags[] = {
@@ -526,8 +535,14 @@ uint32_t qcamera3_all_tags[] = {
     (uint32_t)QCAMERA3_CURRENT_LUMA,
     (uint32_t)QCAMERA3_LUMA_RANGE,
 
+     //QCAMERA3_CURRENT_LUX_IDX
+    (uint32_t)QCAMERA3_CURRENT_LUX_IDX,
+
     //QCAMERA3_LCAC_PROCESSING_END
-    (uint32_t)QCAMERA3_LCAC_PROCESSING_ENABLE
+    (uint32_t)QCAMERA3_LCAC_PROCESSING_ENABLE,
+
+    // QCAMERA3_HAL_FLUSH_RESTART
+    (uint32_t)QCAMERA3_HAL_FLUSH_RESTART_MODE
 };
 
 const vendor_tag_ops_t* QCamera3VendorTags::Ops = NULL;

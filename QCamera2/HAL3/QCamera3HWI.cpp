@@ -482,6 +482,7 @@ QCamera3HardwareInterface::QCamera3HardwareInterface(uint32_t cameraId,
       mLastCustIntentFrmNum(-1),
       mState(CLOSED),
       mIsDeviceLinked(false),
+      mFlushRestart(true),
       mIsMainCamera(true),
       mLinkedCameraId(0),
       m_pDualCamCmdHeap(NULL),
@@ -1804,9 +1805,7 @@ int QCamera3HardwareInterface::configureStreamsPerfLocked(
         }
     }
 
-    if (gCamCapability[mCameraId]->position == CAM_POSITION_FRONT ||
-            gCamCapability[mCameraId]->position == CAM_POSITION_FRONT_AUX ||
-            !m_bIsVideo) {
+    if (!m_bIsVideo) {
         m_bEisEnable = false;
     }
 
@@ -4465,7 +4464,7 @@ int QCamera3HardwareInterface::processCaptureRequest(
             int32_t fps_max =
                     (int32_t) meta.find(ANDROID_CONTROL_AE_TARGET_FPS_RANGE).data.i32[1];
             if (CAMERA3_STREAM_CONFIGURATION_CONSTRAINED_HIGH_SPEED_MODE == mOpMode) {
-                if(fps_max > 60)
+                if(fps_max > 90)
                     m_bEisEnable = false;
             }
         }
@@ -4770,7 +4769,11 @@ int QCamera3HardwareInterface::processCaptureRequest(
             pthread_mutex_unlock(&mMutex);
             goto error_exit;
         }
-
+        // get Flush() settting
+        if (meta.exists(QCAMERA3_HAL_FLUSH_RESTART_MODE)) {
+            mFlushRestart = meta.find(QCAMERA3_HAL_FLUSH_RESTART_MODE).data.u8[0];
+            LOGH(" Flush : Setting = %d", mFlushRestart);
+        }
         //update settings from app here
         if (meta.exists(QCAMERA3_DUALCAM_LINK_ENABLE)) {
             mIsDeviceLinked = meta.find(QCAMERA3_DUALCAM_LINK_ENABLE).data.u8[0];
@@ -7302,6 +7305,7 @@ QCamera3HardwareInterface::translateFromHalMetadata(
             CAM_INTF_META_AEC_INFO, metadata) {
         camMetadata.update(QCAMERA3_TARGET_LUMA, &(ae_params->luma_info.target_luma), 1);
         camMetadata.update(QCAMERA3_CURRENT_LUMA, &(ae_params->luma_info.curr_luma), 1);
+        camMetadata.update(QCAMERA3_CURRENT_LUX_IDX, &(ae_params->luma_info.lux_idx), 1);
         float luma_range[2];
         luma_range[0] = (float) ae_params->luma_info.luma_range.min_luma;
         luma_range[1] = (float) ae_params->luma_info.luma_range.max_luma;
@@ -10402,11 +10406,11 @@ camera_metadata_t* QCamera3HardwareInterface::translateCapabilityToMetadata(int 
     /* CDS default */
     char prop[PROPERTY_VALUE_MAX];
     memset(prop, 0, sizeof(prop));
-    property_get("persist.camera.CDS", prop, "Auto");
-    cam_cds_mode_type_t cds_mode = CAM_CDS_MODE_AUTO;
+    property_get("persist.camera.CDS", prop, "Off");
+    cam_cds_mode_type_t cds_mode = CAM_CDS_MODE_OFF;
     cds_mode = lookupProp(CDS_MAP, METADATA_MAP_SIZE(CDS_MAP), prop);
     if (CAM_CDS_MODE_MAX == cds_mode) {
-        cds_mode = CAM_CDS_MODE_AUTO;
+        cds_mode = CAM_CDS_MODE_OFF;
     }
 
     /* Disabling CDS in templates which have TNR enabled*/
@@ -11634,7 +11638,7 @@ int QCamera3HardwareInterface::translateToHalMetadata
 
     // CDS for non-HFR non-video mode
     if ((mOpMode != CAMERA3_STREAM_CONFIGURATION_CONSTRAINED_HIGH_SPEED_MODE) &&
-            !(m_bIsVideo) && frame_settings.exists(QCAMERA3_CDS_MODE)) {
+         frame_settings.exists(QCAMERA3_CDS_MODE)) {
         int32_t *fwk_cds = frame_settings.find(QCAMERA3_CDS_MODE).data.i32;
         if ((CAM_CDS_MODE_MAX <= *fwk_cds) || (0 > *fwk_cds)) {
             LOGE("Invalid CDS mode %d!", *fwk_cds);
@@ -12308,7 +12312,7 @@ int QCamera3HardwareInterface::flush(
     }
     pthread_mutex_unlock(&hw->mMutex);
 
-    rc = hw->flush(true /* restart channels */ );
+    rc = hw->flush(hw->mFlushRestart);
     LOGD("X");
     return rc;
 }
