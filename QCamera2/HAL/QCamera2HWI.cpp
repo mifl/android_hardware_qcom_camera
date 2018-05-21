@@ -1195,6 +1195,7 @@ int QCamera2HardwareInterface::openCamera()
     m_max_pic_width = 0;
     m_max_pic_height = 0;
     char value[PROPERTY_VALUE_MAX];
+    char dyn_bw_support[PROPERTY_VALUE_MAX];
     int enable_4k2k;
     size_t i;
 
@@ -1318,9 +1319,14 @@ int QCamera2HardwareInterface::openCamera()
     //capabilities, no need of this display bw optimization.
     //Use "service.bootanim.exit" property to know boot status.
     property_get("service.bootanim.exit", value, "0");
-    if (atoi(value) == 1) {
+
+    //Check display component if support to change bandwidth by daynamic
+    //If yes, notify camera session status to display HAL; if no, bypass it.
+    property_get("display.dyn.bw.support", dyn_bw_support, "1");
+    if ((atoi(value) == 1) && (atoi(dyn_bw_support) == 1)) {
         pthread_mutex_lock(&gCamLock);
         if (gNumCameraSessions++ == 0) {
+            CDBG_HIGH("%s: notify camera session is active", __func__);
             setCameraLaunchStatus(true);
         }
         pthread_mutex_unlock(&gCamLock);
@@ -1345,6 +1351,7 @@ int QCamera2HardwareInterface::closeCamera()
     int rc = NO_ERROR;
     int i;
     char value[PROPERTY_VALUE_MAX];
+    char dyn_bw_support[PROPERTY_VALUE_MAX];
     CDBG_HIGH("%s: E", __func__);
     if (!mCameraOpened) {
         return NO_ERROR;
@@ -1399,9 +1406,14 @@ int QCamera2HardwareInterface::closeCamera()
     //but avoid calling the same during bootup. Refer to openCamera
     //for more details.
     property_get("service.bootanim.exit", value, "0");
-    if (atoi(value) == 1) {
+
+    //Check display component if support to change bandwidth by daynamic
+    //If yes, notify camera session status to display HAL; if no, bypass it.
+    property_get("display.dyn.bw.support", dyn_bw_support, "1");
+    if ((atoi(value) == 1) && (atoi(dyn_bw_support) == 1)) {
         pthread_mutex_lock(&gCamLock);
         if (--gNumCameraSessions == 0) {
+            CDBG_HIGH("%s: notify camera session is inactive", __func__);
             setCameraLaunchStatus(false);
         }
         pthread_mutex_unlock(&gCamLock);
