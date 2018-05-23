@@ -4536,7 +4536,11 @@ int QCamera3HardwareInterface::processCaptureRequest(
                  }
             }
         }
-
+        if (meta.exists(QCAMERA3_IS_H_MARGIN_CFG) &&
+                meta.exists(QCAMERA3_IS_V_MARGIN_CFG)) {
+            mStreamConfigInfo.is_margin[0] = meta.find(QCAMERA3_IS_H_MARGIN_CFG).data.f[0];
+            mStreamConfigInfo.is_margin[1] = meta.find(QCAMERA3_IS_V_MARGIN_CFG).data.f[0];
+        }
         if (meta.exists(ANDROID_LENS_FOCAL_LENGTH)) {
             float mode =  meta.find(ANDROID_LENS_FOCAL_LENGTH).data.f[0];
             if (ADD_SET_PARAM_ENTRY_TO_BATCH(mParameters,
