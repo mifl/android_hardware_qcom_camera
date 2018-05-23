@@ -69,7 +69,8 @@ enum qcamera3_ext_tags qcamera3_ext3_section_bounds[QCAMERA3_SECTIONS_END -
         QCAMERA3_STATS_END,
         QCAMERA3_QUADRA_CFA_DATA_END,
         QCAMERA3_HFR_END,
-        QCAMERA3_DEWARP_END
+        QCAMERA3_DEWARP_END,
+        QCAMERA3_IS_MARGIN_CFG_END
 };
 
 typedef struct vendor_tag_info {
@@ -106,6 +107,7 @@ const char *qcamera3_ext_section_names[QCAMERA3_SECTIONS_END -
     "org.codeaurora.qcamera3.quadra_cfa",
     "org.codeaurora.qcamera3.hfr",
     "org.codeaurora.qcamera3.dewarp",
+    "org.codeaurora.qcamera3.qcamera_is_margin_cfg"
 };
 
 vendor_tag_info_t qcamera3_privatedata[QCAMERA3_PRIVATEDATA_END - QCAMERA3_PRIVATEDATA_START] = {
@@ -282,6 +284,12 @@ vendor_tag_info_t qcamera3_dewarp[QCAMERA3_DEWARP_END -
     { "dewarp_supported_modes", TYPE_INT32}
 };
 
+vendor_tag_info_t qcamera3_is_margin_cfg[QCAMERA3_IS_MARGIN_CFG_END -
+	     QCAMERA3_IS_MARGIN_CFG_START] = {
+     { "h_margin", TYPE_FLOAT},
+     { "v_margin", TYPE_FLOAT},
+};
+
 vendor_tag_info_t *qcamera3_tag_info[QCAMERA3_SECTIONS_END -
         VENDOR_SECTION] = {
     qcamera3_privatedata,
@@ -310,7 +318,8 @@ vendor_tag_info_t *qcamera3_tag_info[QCAMERA3_SECTIONS_END -
     qcamera3_stats,
     qcamera3_quadra_cfa,
     qcamera3_hfr,
-    qcamera3_dewarp
+    qcamera3_dewarp,
+    qcamera3_is_margin_cfg,
 };
 
 uint32_t qcamera3_all_tags[] = {
@@ -430,6 +439,10 @@ uint32_t qcamera3_all_tags[] = {
     // QCAMERA3_DEWARP
     (uint32_t)QCAMERA3_DEWARP_MODE,
     (uint32_t)QCAMERA3_DEWARP_AVAILABLE_MODES,
+
+    //QCAMERA3_IS_MARGIN_CFG
+    (uint32_t)QCAMERA3_IS_H_MARGIN_CFG,
+    (uint32_t)QCAMERA3_IS_V_MARGIN_CFG
 };
 
 const vendor_tag_ops_t* QCamera3VendorTags::Ops = NULL;

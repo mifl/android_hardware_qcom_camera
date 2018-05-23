@@ -1850,6 +1850,7 @@ typedef struct {
     cam_frame_margins_t margins[MAX_NUM_STREAMS];
     cam_dimension_t stream_sz_plus_margin[MAX_NUM_STREAMS]; /*stream sizes + margin*/
     uint8_t is_secure;
+    float is_margin[2];
 } cam_stream_size_info_t;
 
 typedef enum {
