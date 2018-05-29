@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -287,15 +287,13 @@ bool QCameraCommon::isVideoUBWCEnabled()
 {
 #ifdef UBWC_PRESENT
     char prop[PROPERTY_VALUE_MAX];
-    int pFormat;
     memset(prop, 0, sizeof(prop));
     /* Checking the property set by video
      * to disable/enable UBWC */
-    property_get("video.disable.ubwc", prop, "0");
-    pFormat = atoi(prop);
-    if (pFormat == 0) {
-        return TRUE;
-    }
+    if (property_get("video.disable.ubwc", prop, "") > 0)
+        return (atoi(prop) == 0);
+    else if (property_get("vendor.video.disable.ubwc", prop, "") > 0)
+        return (atoi(prop) == 0);
     return FALSE;
 #else
     return FALSE;
@@ -346,7 +344,7 @@ bool QCameraCommon::skipAnalysisBundling()
     char prop[PROPERTY_VALUE_MAX];
     bool needBundling = true;
     memset(prop, 0, sizeof(prop));
-    property_get("persist.camera.isp.analysis_en", prop, "1");
+    property_get("persist.vendor.camera.isp.analysis_en", prop, "1");
     needBundling = atoi(prop);
 
     return !needBundling;

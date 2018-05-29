@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -530,7 +530,7 @@ void QCamera3Channel::dumpYUV(mm_camera_buf_def_t *frame, cam_dimension_t dim,
     memset(buf, 0, sizeof(buf));
     static int counter = 0;
     char prop[PROPERTY_VALUE_MAX];
-    property_get("persist.camera.dumpimg", prop, "0");
+    property_get("persist.vendor.camera.dumpimg", prop, "0");
     mYUVDump = (uint32_t)atoi(prop);
     if (mYUVDump & dump_type) {
         mFrmNum = ((mYUVDump & 0xffff0000) >> 16);
@@ -644,7 +644,7 @@ bool QCamera3Channel::isUBWCEnabled()
     //Disable UBWC if Eztune is enabled
     //EzTune process CPP output frame and cannot understand UBWC.
     memset(value, 0, sizeof(value));
-    property_get("persist.camera.eztune.enable", value, "0");
+    property_get("persist.vendor.camera.eztune.enable", value, "0");
     prop_value = atoi(value);
     if (prop_value) {
         return FALSE;
@@ -692,7 +692,7 @@ cam_format_t QCamera3Channel::getStreamDefaultFormat(cam_stream_type_t type,
             char prop[PROPERTY_VALUE_MAX];
             int pFormat;
             memset(prop, 0, sizeof(prop));
-            property_get("persist.camera.preview.ubwc", prop, "1");
+            property_get("persist.vendor.camera.preview.ubwc", prop, "1");
             pFormat = atoi(prop);
             if (pFormat == 1 && (m_bUBWCenable)) {
                 streamFormat = CAM_FORMAT_YUV_420_NV12_UBWC;
@@ -840,7 +840,7 @@ QCamera3ProcessingChannel::QCamera3ProcessingChannel(uint32_t cam_handle,
             mCamera3Stream(stream)
 {
     char prop[PROPERTY_VALUE_MAX];
-    property_get("persist.debug.sf.showfps", prop, "0");
+    property_get("persist.vendor.debug.sf.showfps", prop, "0");
     mDebugFPS = (uint8_t) atoi(prop);
 
     int32_t rc = m_postprocessor.init(&mMemory);
@@ -1066,6 +1066,8 @@ void QCamera3YUVChannel::putStreamBufs()
     mFreeHeapBufferList.clear();
     // Clear offlinePpInfoList
     mOfflinePpInfoList.clear();
+    // Clear offlineMemory
+    mOfflineMemory.clear();
 }
 
 /*===========================================================================
@@ -2452,7 +2454,7 @@ QCamera3RawChannel::QCamera3RawChannel(uint32_t cam_handle,
                         mIsRaw16(raw_16)
 {
     char prop[PROPERTY_VALUE_MAX];
-    property_get("persist.camera.raw.debug.dump", prop, "0");
+    property_get("persist.vendor.camera.raw.debug.dump", prop, "0");
     mRawDump = atoi(prop);
 }
 
@@ -2674,7 +2676,7 @@ QCamera3RawDumpChannel::QCamera3RawDumpChannel(uint32_t cam_handle,
                         mMemory(NULL)
 {
     char prop[PROPERTY_VALUE_MAX];
-    property_get("persist.camera.raw.dump", prop, "0");
+    property_get("persist.vendor.camera.raw.dump", prop, "0");
     mRawDump = atoi(prop);
 }
 
@@ -4747,6 +4749,8 @@ void QCamera3PicChannel::putStreamBufs()
     delete mYuvMemory;
     mYuvMemory = NULL;
     mFreeBufferList.clear();
+    // Clear offlineMemory
+    mOfflineMemory.clear();
 }
 
 int32_t QCamera3PicChannel::queueJpegSetting(uint32_t index, metadata_buffer_t *metadata,
@@ -5656,7 +5660,8 @@ int32_t QCamera3ReprocessChannel::overrideMetadata(qcamera_hal3_pp_buffer_t *pp_
                             crop_data->num_of_streams++;
 
                             if((!hal_obj->needHALPP()) &&
-                                   (hal_obj->getHalPPType() ==  CAM_HAL_PP_TYPE_BOKEH))
+                                   (hal_obj->getHalPPType() ==  CAM_HAL_PP_TYPE_BOKEH) &&
+                                    (jpeg_settings != NULL))
                             {
                                 jpeg_settings->crop = crop_data->crop_info[j].crop;
                                 jpeg_settings->is_crop_valid = true;
