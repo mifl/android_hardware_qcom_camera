@@ -3,6 +3,9 @@ LOCAL_PATH := $(call my-dir)
 include $(CLEAR_VARS)
 
 LOCAL_CFLAGS+= -D_ANDROID_
+ifeq ($(filter OMR1 O 8.1.0, $(PLATFORM_VERSION)), )
+LOCAL_CFLAGS += -march=armv7ve
+endif
 LOCAL_CFLAGS += -Wall -Wextra -Werror -Wno-unused-parameter
 
 LOCAL_C_INCLUDES := $(TARGET_OUT_INTERMEDIATES)/KERNEL_OBJ/usr/include

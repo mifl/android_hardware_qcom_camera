@@ -18,6 +18,9 @@ LOCAL_SRC_FILES := \
         wrapper/QualcommCamera.cpp
 
 LOCAL_CFLAGS = -Wall -Wextra -Werror
+ifeq ($(filter OMR1 O 8.1.0, $(PLATFORM_VERSION)), )
+LOCAL_CFLAGS += -march=armv7ve
+endif
 LOCAL_CFLAGS += -DHAS_MULTIMEDIA_HINTS
 
 #use media extension
