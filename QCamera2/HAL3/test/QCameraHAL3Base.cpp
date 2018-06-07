@@ -31,6 +31,7 @@
 #include "QCameraHAL3SnapshotTest.h"
 #include "QCameraHAL3RawSnapshotTest.h"
 #include "QCameraHAL3PreviewTest.h"
+#define LOG_TAG "CameraHAL3Base"
 
 extern "C" {
 extern int set_camera_metadata_vendor_ops(const vendor_tag_ops_t *query_ops);
@@ -39,6 +40,7 @@ extern int set_camera_metadata_vendor_ops(const vendor_tag_ops_t *query_ops);
 namespace qcamera {
 
 QCameraHAL3PreviewTest *mPreviewtestCase = NULL;
+QCameraHAL3PreviewTest *mRDIPreviewtestCase = NULL;
 QCameraHAL3VideoTest *mVideotestCase = NULL;
 QCameraHAL3SnapshotTest *mSnapshottestCase = NULL;
 QCameraHAL3RawSnapshotTest *mRawSnapshottestCase = NULL;
@@ -86,6 +88,11 @@ static void Notify(
     if((cb == NULL) || (msg == NULL)) {
         LOGD("Parameters are NULL ");
     }
+
+    if(msg->type == CAMERA3_MSG_SHUTTER) {
+        LOGE("CAMERA3_MSG_SHUTTER: frame_number=%d, timestamp=%lld",
+            msg->message.shutter.frame_number,msg->message.shutter.timestamp);
+    }
 }
 
 static void ProcessCaptureResult(
@@ -105,7 +112,8 @@ static void ProcessCaptureResult(
     LOGD("Cam Capture Result Callback %d and %d",
             result->num_output_buffers, mCamHal3Base->mFrameCount);
     if (mCamHal3Base->mTestCaseSelected == MENU_START_PREVIEW ||
-            mCamHal3Base->mTestCaseSelected == MENU_START_VIDEO) {
+        mCamHal3Base->mTestCaseSelected == MENU_START_RDI_PREVIEW ||
+        mCamHal3Base->mTestCaseSelected == MENU_START_VIDEO) {
         if (result->num_output_buffers == 1) {
             frame_num = result->frame_number;
             LOGD("Frame width:%d and height:%d and format:%d",
@@ -116,7 +124,8 @@ static void ProcessCaptureResult(
             LOGD("Preview/Video Capture Result %d and fcount: %d and req_Sent:%d and %d ",
             result->num_output_buffers, mCamHal3Base->mFrameCount, req_sent, result->frame_number);
             if (test_case_end == 0) {
-                if (mCamHal3Base->mTestCaseSelected == MENU_START_PREVIEW) {
+                if (mCamHal3Base->mTestCaseSelected == MENU_START_PREVIEW ||
+                    mCamHal3Base->mTestCaseSelected == MENU_START_RDI_PREVIEW) {
                     num = (result->frame_number)%preview_buffer_allocated;
                     PreviewQueue.push_back(num);
                 }
@@ -302,13 +311,14 @@ int CameraHAL3Base::hal3appCamInitialize(int camid, hal3_camera_test_obj_t *my_t
 
 void CameraHAL3Base::hal3appCheckStream(int testcase, int camid)
 {
-    if (testcase != MENU_START_PREVIEW) {
+    if (testcase != MENU_START_PREVIEW && testcase != MENU_START_RDI_PREVIEW) {
         if (mPreviewtestCase != NULL) {
             mPreviewtestCase->previewTestEnd(mLibHandle, camid);
             delete mPreviewtestCase;
             mPreviewtestCase = NULL;
         }
     }
+
     if (testcase != MENU_START_VIDEO){
         if (mVideotestCase != NULL) {
             mVideotestCase->videoTestEnd(mLibHandle, camid);
@@ -348,26 +358,27 @@ int CameraHAL3Base::hal3appCameraPreviewInit(int testcase, int camid, int w, int
         return -1;
     }
     if ( mPreviewtestCase != NULL) {
-        if(testcase == MENU_TOGGLE_IR_MODE) {
+        if(testcase == MENU_TOGGLE_IR_MODE && mTestCaseSelected == MENU_START_PREVIEW) {
             ALOGE("\n IR mode requested is :%d", ir_mode);
             mPreviewtestCase->ir_mode = ir_mode;
         }
-        if(testcase == MENU_TOGGLE_SVHDR_MODE) {
+        if(testcase == MENU_TOGGLE_SVHDR_MODE && mTestCaseSelected == MENU_START_PREVIEW) {
             ALOGE("\n SVHDR mode requested is :%d", svhdr_mode);
             mPreviewtestCase->svhdr_mode = svhdr_mode;
         }
         return 0;
     }
     else {
+        int previewCase = (testcase == MENU_START_RDI_PREVIEW? MENU_START_RDI_PREVIEW : MENU_START_PREVIEW);
         testCaseEndComplete = 0;
         do {
             if (mVideoRunning == 1) {
-                hal3appCheckStream(MENU_START_PREVIEW, camid);
+                hal3appCheckStream(previewCase, camid);
             }
             pthread_mutex_lock(&TestAppLock);
-            mTestCaseSelected = MENU_START_PREVIEW;
+            mTestCaseSelected = previewCase;
             if (mVideoRunning != 1) {
-                hal3appCheckStream(MENU_START_PREVIEW, camid);
+                hal3appCheckStream(previewCase, camid);
             }
             mPreviewtestCase = new QCameraHAL3PreviewTest(0);
             printf("\n\n Testing the Resolution : %d X %d", w, h);
@@ -378,7 +389,7 @@ int CameraHAL3Base::hal3appCameraPreviewInit(int testcase, int camid, int w, int
             mPreviewtestCase->width = w; mPreviewtestCase->height = h;
             mPreviewtestCase->ir_mode = 0; mPreviewtestCase->svhdr_mode = 0;
             mPreviewtestCase->initTest(mLibHandle,
-                    (int) MENU_START_PREVIEW, camid, w, h);
+                    previewCase, camid, w, h);
             testCaseEndComplete = 1;
         }while(testCaseEndComplete != 1);
     }
@@ -482,5 +493,25 @@ int CameraHAL3Base::hal3appCameraCaptureInit(hal3_camera_lib_test *handle,
     return 0;
 }
 
+int CameraHAL3Base::hal3appCameraGetStreamConfigurations(int32_t format, cam_dimension_t & dim)
+{
+    camera_metadata_entry_t entry;
+    if(hal3app_cam_settings.exists(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS)) {
+        entry = hal3app_cam_settings.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
+        for (uint32_t i = 0; i < entry.count; i += 4) {
+            if (format == entry.data.i32[i] &&
+                ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT == entry.data.i32[i+3]) {
+                dim.width = hal3app_cam_settings.find(
+                    ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS).data.i32[i+1];
+                dim.height = hal3app_cam_settings.find(
+                    ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS).data.i32[i+2];
+
+                LOGE("%s: format = %d, w x h = %d x %d", __func__, format, dim.width, dim.height);
+                return 0;
+            }
+        }
+    }
+    return -1;
 }
 
+}

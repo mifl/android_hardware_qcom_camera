@@ -58,6 +58,9 @@ extern "C" {
 #define PREVIEW_WIDTH 640
 #define PREVIEW_HEIGHT 480
 
+#define RDI_PREVIEW_WIDTH_DEFAULT 640
+#define RDI_PREVIEW_HEIGHT_DEFAULT 480
+
 #define VIDEO_WIDTH 640
 #define VIDEO_HEIGHT 480
 
@@ -214,6 +217,7 @@ public:
     int hal3appCameraTestLoad();
     int hal3appCameraTestUnload();
     void hal3appCheckStream(int testcase, int camid);
+    int hal3appCameraGetStreamConfigurations(int32_t format, cam_dimension_t & dim);
 
 };
 

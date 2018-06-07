@@ -117,7 +117,7 @@ public:
     bool svhdr_mode;
     QCameraHAL3PreviewTest(int cameraIndex);
     void configurePreviewStream(hal3_camera_test_obj_t *my_test_obj, int camid,
-            int w, int h);
+            int w, int h, int testcase);
 
     void snapshotCaptureRequest(hal3_camera_lib_test *handle,
             int testcase, int camid, int w, int h);
@@ -128,7 +128,7 @@ public:
     void captureRequestRepeat(hal3_camera_lib_test *, int, int);
     void previewAllocateBuffers(int,
             int, int);
-    bool previewProcessThreadCreate(hal3_camera_lib_test *);
+    bool previewProcessThreadCreate(hal3_camera_lib_test *handle, int testcase);
     void previewTestEnd(hal3_camera_lib_test *my_hal3test_obj, int camid);
     void snapshotAllocateBuffers(int, int );
     virtual ~QCameraHAL3PreviewTest();

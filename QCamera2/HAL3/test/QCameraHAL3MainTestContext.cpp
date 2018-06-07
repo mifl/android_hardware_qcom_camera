@@ -39,6 +39,7 @@ namespace qcamera {
 
 const CAMERA_BASE_MENU_TBL_T camera_main_menu_tbl[] = {
     {MENU_START_PREVIEW,             "To Start Preview"},
+    {MENU_START_RDI_PREVIEW,         "To Start RDI Preview"},
     {MENU_START_VIDEO,               "To Start Video"},
     {MENU_START_CAPTURE,             "To Capture(Non-ZSL)"},
     {MENU_START_RAW_CAPTURE,         "To Raw Capture"},
@@ -100,6 +101,24 @@ int MainTestContext::hal3appGetUserEvent()
                 mCamHal3Base->mPreviewRunning = 1; mCamHal3Base->mVideoRunning = 0;
                 mCamHal3Base->mSnapShotRunning = 0;
             break;
+
+            case MENU_START_RDI_PREVIEW:
+            {
+                cam_dimension_t raw_dim;
+                if (0 != mCamHal3Base->hal3appCameraGetStreamConfigurations(HAL_PIXEL_FORMAT_RAW10, raw_dim)) {
+                    raw_dim.width = RDI_PREVIEW_WIDTH_DEFAULT;
+                    raw_dim.height = RDI_PREVIEW_HEIGHT_DEFAULT;
+                }
+
+                printf("\n raw preview size = %d x %d \n", raw_dim.width, raw_dim.height);
+
+                mCamHal3Base->hal3appCameraPreviewInit(MENU_START_RDI_PREVIEW,
+                        mCamHal3Base->mCameraIndex, raw_dim.width, raw_dim.height);
+                mCamHal3Base->mPreviewRunning = 1; mCamHal3Base->mVideoRunning = 0;
+                mCamHal3Base->mSnapShotRunning = 0;
+            }
+            break;
+
 
             case MENU_START_VIDEO:
                 mCamHal3Base->hal3appCameraVideoInit(MENU_START_VIDEO,

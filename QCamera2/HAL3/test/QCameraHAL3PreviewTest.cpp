@@ -30,6 +30,7 @@
 #include "QCameraHAL3PreviewTest.h"
 #include "QCameraHAL3MainTestContext.h"
 #include "gralloc_priv.h"
+#define LOG_TAG "QCameraHAL3PreviewTest"
 
 namespace qcamera {
 extern hal3_camera_lib_test *CamObj_handle;
@@ -624,7 +625,7 @@ void QCameraHAL3PreviewTest::initTest(hal3_camera_lib_test *handle,
 {
     int i;
     CamObj_handle = handle; thread_exit = 0; test_case_end = 0;
-    configurePreviewStream(&(handle->test_obj) , camid, w, h);
+    configurePreviewStream(&(handle->test_obj) , camid, w, h, testcase);
     constructDefaultRequest(&(handle->test_obj), camid);
     mPreviewHandle = new native_handle_t *[mPipelineDepthPreview];
     for (i = 0; i < mPipelineDepthPreview; i++)
@@ -634,7 +635,7 @@ void QCameraHAL3PreviewTest::initTest(hal3_camera_lib_test *handle,
         PreviewQueue.push_back(i);
     }
     mRequest.frame_number = 0;
-    previewProcessThreadCreate(handle);
+    previewProcessThreadCreate(handle,testcase);
 }
 
 void QCameraHAL3PreviewTest::snapshotCaptureRequest(hal3_camera_lib_test *handle,
@@ -646,15 +647,23 @@ void QCameraHAL3PreviewTest::snapshotCaptureRequest(hal3_camera_lib_test *handle
 }
 
 void QCameraHAL3PreviewTest::configurePreviewStream(hal3_camera_test_obj_t *my_test_obj,
-                                int camid, int w, int h)
+                                int camid, int w, int h, int testcase)
 {
     camera3_device_t *device_handle = my_test_obj->device;
     mPreviewStream =  new camera3_stream_t;
     memset(mPreviewStream, 0, sizeof(camera3_stream_t));
-    mPreviewStream = initStream(CAMERA3_STREAM_OUTPUT, camid, w, h, 0,
+    if (testcase != MENU_START_RDI_PREVIEW) {
+      mPreviewStream = initStream(CAMERA3_STREAM_OUTPUT, camid, w, h, 0,
             HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED, HAL3_DATASPACE_UNKNOWN);
 
-    mPreviewConfig = configureStream(CAMERA3_STREAM_CONFIGURATION_NORMAL_MODE, 1);
+      mPreviewConfig = configureStream(CAMERA3_STREAM_CONFIGURATION_NORMAL_MODE, 1);
+    }
+    else {
+      mPreviewStream = initStream(CAMERA3_STREAM_OUTPUT, camid, w, h, 0,
+          HAL_PIXEL_FORMAT_RAW10, HAL3_DATASPACE_ARBITRARY);
+
+      mPreviewConfig = configureStream(QCAMERA3_VENDOR_STREAM_CONFIGURATION_RAW_ONLY_MODE, 1);
+    }
     mPreviewConfig.streams[0] = mPreviewStream;
     device_handle->ops->configure_streams(my_test_obj->device, &(mPreviewConfig));
     mPipelineDepthPreview = mPreviewConfig.streams[0]->max_buffers;
@@ -683,7 +692,7 @@ void QCameraHAL3PreviewTest::captureRequestRepeat(
     hal3_camera_test_obj_t *my_test_obj = &(my_hal3test_obj->test_obj);
     camera3_device_t *device_handle = my_test_obj->device;
 
-    if (testcase == MENU_START_PREVIEW) {
+    if (testcase == MENU_START_PREVIEW || testcase == MENU_START_RDI_PREVIEW) {
         if (PreviewQueue.empty()) {
             LOGE("no preview buffer for CamID : %d", camid);
         }
@@ -786,12 +795,12 @@ void QCameraHAL3PreviewTest::snapshotAllocateBuffers(int width, int height)
 }
 
 bool QCameraHAL3PreviewTest::previewProcessThreadCreate(
-        hal3_camera_lib_test *handle)
+        hal3_camera_lib_test *handle, int testcase)
 {
     if(handle == NULL) {
         LOGD("Camera Hanle is NULL");
     }
-    processThreadCreate(this, MENU_START_PREVIEW);
+    processThreadCreate(this, testcase);
     return 1;
 }
 
