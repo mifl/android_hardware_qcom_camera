@@ -17,6 +17,10 @@ endif
 
 LOCAL_CFLAGS += -D_ANDROID_
 
+ifeq ($(filter OMR1 O 8.1.0, $(PLATFORM_VERSION)), )
+LOCAL_CFLAGS += -march=armv7ve
+endif
+
 LOCAL_SRC_FILES:= \
         src/mm_qcamera_main_menu.c \
         src/mm_qcamera_app.c \
@@ -121,6 +125,9 @@ LOCAL_CFLAGS += -DUSE_ION
 endif
 
 LOCAL_CFLAGS += -D_ANDROID_
+ifeq ($(filter OMR1 O 8.1.0, $(PLATFORM_VERSION)), )
+LOCAL_CFLAGS += -march=armv7ve
+endif
 
 LOCAL_SRC_FILES:= \
         src/mm_qcamera_main_menu.c \
