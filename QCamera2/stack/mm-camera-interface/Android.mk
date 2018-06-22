@@ -22,6 +22,9 @@ ifeq ($(call is-board-platform-in-list,msm8974 msm8916 msm8226 msm8610 msm8909),
 endif
 
 LOCAL_CFLAGS += -D_ANDROID_
+ifeq ($(filter OMR1 O 8.1.0, $(PLATFORM_VERSION)), )
+LOCAL_CFLAGS += -march=armv7ve
+endif
 LOCAL_COPY_HEADERS_TO := mm-camera-interface
 LOCAL_COPY_HEADERS += ../common/cam_intf.h
 LOCAL_COPY_HEADERS += ../common/cam_types.h
