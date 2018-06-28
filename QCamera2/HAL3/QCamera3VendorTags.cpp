@@ -75,7 +75,8 @@ enum qcamera3_ext_tags qcamera3_ext3_section_bounds[QCAMERA3_SECTIONS_END -
         QCAMERA3_AWB_ROI_END,
         QCAMERA3_LUMA_INFO_END,
         QCAMERA3_LCAC_PROCESSING_END,
-        QCAMERA3_HAL_FLUSH_RESTART_END
+        QCAMERA3_HAL_FLUSH_RESTART_END,
+        QCAMERA3_IS_MARGIN_CFG_END
 };
 
 typedef struct vendor_tag_info {
@@ -117,7 +118,8 @@ const char *qcamera3_ext_section_names[QCAMERA3_SECTIONS_END -
     "org.codeaurora.qcamera3.awb_roi",
     "org.codeaurora.qcamera3.luma_info",
     "org.codeaurora.qcamera3.lcac_enable",
-    "org.codeaurora.qcamera3.flush_restart"
+    "org.codeaurora.qcamera3.flush_restart",
+    "org.codeaurora.qcamera3.qcamera_is_margin_cfg"
 };
 
 vendor_tag_info_t qcamera3_privatedata[QCAMERA3_PRIVATEDATA_END - QCAMERA3_PRIVATEDATA_START] = {
@@ -337,6 +339,12 @@ vendor_tag_info_t qcamera3_luma_info[QCAMERA3_LUMA_INFO_END-
     { "lux_idx",  TYPE_FLOAT},
 };
 
+vendor_tag_info_t qcamera3_is_margin_cfg[QCAMERA3_IS_MARGIN_CFG_END -
+	     QCAMERA3_IS_MARGIN_CFG_START] = {
+     { "h_margin", TYPE_FLOAT},
+     { "v_margin", TYPE_FLOAT},
+};
+
 vendor_tag_info_t qcamera3_lcac_enable[QCAMERA3_LCAC_PROCESSING_END-
         QCAMERA3_LCAC_PROCESSING_START] = {
     { "lcac_enable", TYPE_BYTE }
@@ -382,7 +390,8 @@ vendor_tag_info_t *qcamera3_tag_info[QCAMERA3_SECTIONS_END -
     qcamera3_awb_roi,
     qcamera3_luma_info,
     qcamera3_lcac_enable,
-    qcamera3_flush_restart
+    qcamera3_flush_restart,
+    qcamera3_is_margin_cfg,
 };
 
 uint32_t qcamera3_all_tags[] = {
@@ -542,7 +551,11 @@ uint32_t qcamera3_all_tags[] = {
     (uint32_t)QCAMERA3_LCAC_PROCESSING_ENABLE,
 
     // QCAMERA3_HAL_FLUSH_RESTART
-    (uint32_t)QCAMERA3_HAL_FLUSH_RESTART_MODE
+    (uint32_t)QCAMERA3_HAL_FLUSH_RESTART_MODE,
+
+    //QCAMERA3_IS_MARGIN_CFG
+    (uint32_t)QCAMERA3_IS_H_MARGIN_CFG,
+    (uint32_t)QCAMERA3_IS_V_MARGIN_CFG
 };
 
 const vendor_tag_ops_t* QCamera3VendorTags::Ops = NULL;

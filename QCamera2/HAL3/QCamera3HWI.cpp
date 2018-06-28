@@ -4536,7 +4536,11 @@ int QCamera3HardwareInterface::processCaptureRequest(
                  }
             }
         }
-
+        if (meta.exists(QCAMERA3_IS_H_MARGIN_CFG) &&
+                meta.exists(QCAMERA3_IS_V_MARGIN_CFG)) {
+            mStreamConfigInfo.is_margin[0] = meta.find(QCAMERA3_IS_H_MARGIN_CFG).data.f[0];
+            mStreamConfigInfo.is_margin[1] = meta.find(QCAMERA3_IS_V_MARGIN_CFG).data.f[0];
+        }
         if (meta.exists(ANDROID_LENS_FOCAL_LENGTH)) {
             float mode =  meta.find(ANDROID_LENS_FOCAL_LENGTH).data.f[0];
             if (ADD_SET_PARAM_ENTRY_TO_BATCH(mParameters,
@@ -9104,11 +9108,13 @@ int QCamera3HardwareInterface::initStaticMetadata(uint32_t cameraId)
     int32_t io_format_map[] = {HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED, 2,
             HAL_PIXEL_FORMAT_BLOB, HAL_PIXEL_FORMAT_YCbCr_420_888,
             HAL_PIXEL_FORMAT_YCbCr_420_888, 2, HAL_PIXEL_FORMAT_BLOB,
-            HAL_PIXEL_FORMAT_YCbCr_420_888, HAL_PIXEL_FORMAT_RAW10, 2,
+            HAL_PIXEL_FORMAT_YCbCr_420_888, HAL_PIXEL_FORMAT_RAW10, 3,
             HAL_PIXEL_FORMAT_BLOB, HAL_PIXEL_FORMAT_YCbCr_420_888,
-            HAL_PIXEL_FORMAT_RAW12, 2, HAL_PIXEL_FORMAT_BLOB,
-            HAL_PIXEL_FORMAT_YCbCr_420_888, HAL_PIXEL_FORMAT_RAW16, 2,
-            HAL_PIXEL_FORMAT_BLOB, HAL_PIXEL_FORMAT_YCbCr_420_888};
+            HAL_PIXEL_FORMAT_YCbCr_422_888, HAL_PIXEL_FORMAT_RAW12, 3,
+            HAL_PIXEL_FORMAT_BLOB, HAL_PIXEL_FORMAT_YCbCr_420_888,
+            HAL_PIXEL_FORMAT_YCbCr_422_888, HAL_PIXEL_FORMAT_RAW16, 3,
+            HAL_PIXEL_FORMAT_BLOB, HAL_PIXEL_FORMAT_YCbCr_420_888,
+            HAL_PIXEL_FORMAT_YCbCr_422_888};
     staticInfo.update(ANDROID_SCALER_AVAILABLE_INPUT_OUTPUT_FORMATS_MAP,
                       io_format_map, sizeof(io_format_map)/sizeof(io_format_map[0]));
 
