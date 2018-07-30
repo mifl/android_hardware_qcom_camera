@@ -441,6 +441,7 @@ QCamera3HardwareInterface::QCamera3HardwareInterface(uint32_t cameraId,
       mDummyBatchChannel(NULL),
       mPerfLockMgr(),
       mChannelHandle(0),
+      mChannelStopped(true),
       mFirstConfiguration(true),
       mFlush(false),
       mFlushPerf(false),
@@ -4999,6 +5000,25 @@ no_error:
         mFirstConfiguration = false;
     }
 
+    if (mChannelStopped) {
+        rc = startAllChannels();
+        if (rc < 0) {
+            LOGE("startAllChannels failed");
+            pthread_mutex_unlock(&mMutex);
+            return rc;
+        }
+        if (mChannelHandle) {
+            mCameraHandle->ops->start_channel(mCameraHandle->camera_handle,
+                        mChannelHandle);
+            if (rc < 0) {
+                LOGE("start_channel failed");
+                pthread_mutex_unlock(&mMutex);
+                return rc;
+            }
+        }
+        mChannelStopped = false;
+    }
+
     uint32_t frameNumber = request->frame_number;
     cam_stream_ID_t streamsArray;
 
@@ -5772,6 +5792,9 @@ int QCamera3HardwareInterface::flush(bool restartChannels)
                 return rc;
             }
         }
+        mChannelStopped = false;
+    } else {
+      mChannelStopped = true;
     }
     pthread_mutex_unlock(&mMutex);
 
