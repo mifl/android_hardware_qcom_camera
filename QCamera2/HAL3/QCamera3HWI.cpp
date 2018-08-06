@@ -559,7 +559,11 @@ QCamera3HardwareInterface::QCamera3HardwareInterface(uint32_t cameraId,
     property_get("persist.camera.cacmode.disable", prop, "0");
     m_cacModeDisabled = (uint8_t)atoi(prop);
 
-    mRdiModeFmt = gCamCapability[mCameraId]->rdi_mode_stream_fmt;
+
+    memset(prop, 0 , sizeof(prop));
+    property_get("persist.camera.raw.fmt", prop, "31");
+    mRdiModeFmt = (cam_format_t)atoi(prop);
+
     //Load and read GPU library.
     lib_surface_utils = NULL;
     LINK_get_surface_pixel_alignment = NULL;
