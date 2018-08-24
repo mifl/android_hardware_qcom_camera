@@ -789,6 +789,8 @@ cam_format_t QCamera3Channel::convertToPlain16Format(cam_format_t fmt)
         return CAM_FORMAT_BAYER_IDEAL_RAW_PLAIN16_10BPP_RGGB;
     case CAM_FORMAT_BAYER_IDEAL_RAW_PLAIN16_10BPP_BGGR:
         return CAM_FORMAT_BAYER_IDEAL_RAW_PLAIN16_10BPP_BGGR;
+    case CAM_FORMAT_BAYER_IDEAL_RAW_MIPI_10BPP_BGGR:
+        return CAM_FORMAT_BAYER_IDEAL_RAW_MIPI_10BPP_BGGR;
 
     default:
         return CAM_FORMAT_MAX;
