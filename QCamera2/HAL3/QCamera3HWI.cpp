@@ -7322,6 +7322,17 @@ QCamera3HardwareInterface::translateFromHalMetadata(
         camMetadata.update(QCAMERA3_LUMA_RANGE, luma_range, 2);
     }
 
+    IF_META_AVAILABLE(cam_awb_params_t, awb_params,
+            CAM_INTF_META_AWB_INFO, metadata) {
+        LOGD("awb cct_value %d ",awb_params->cct_value);
+        LOGD("awb r_gain %f, g_gain %f, b_gain %f", awb_params->rgb_gains.r_gain,
+          awb_params->rgb_gains.g_gain, awb_params->rgb_gains.b_gain)
+        camMetadata.update(QCAMERA3_AWB_COLORTEMP, &(awb_params->cct_value), 1);
+        camMetadata.update(QCAMERA3_AWB_R_GAIN, &(awb_params->rgb_gains.r_gain), 1);
+        camMetadata.update(QCAMERA3_AWB_G_GAIN, &(awb_params->rgb_gains.g_gain), 1);
+        camMetadata.update(QCAMERA3_AWB_B_GAIN, &(awb_params->rgb_gains.b_gain), 1);
+    }
+
     /* In batch mode, cache the first metadata in the batch */
     if (mBatchSize && firstMetadataInBatch) {
         mCachedMetadata.clear();
