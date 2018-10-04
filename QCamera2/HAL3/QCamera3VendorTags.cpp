@@ -68,6 +68,7 @@ enum qcamera3_ext_tags qcamera3_ext3_section_bounds[QCAMERA3_SECTIONS_END -
         QCAMERA3_BINNING_CORRECTION_END,
         QCAMERA3_STATS_END,
         QCAMERA3_WNR_END,
+        QCAMERA3_ISP_SENSITIVITY_CFG_END,
         QCAMERA3_EXPOSURE_DATA_END,
         QCAMERA3_TNR_TUNING_END,
         QCAMERA3_DEWARP_END,
@@ -111,6 +112,7 @@ const char *qcamera3_ext_section_names[QCAMERA3_SECTIONS_END -
     "org.codeaurora.qcamera3.binning_correction",
     "org.codeaurora.qcamera3.stats",
     "org.codeaurora.qcamera3.wnr",
+    "org.codeaurora.qcamera3.isp_senstivity",
     "org.codeaurora.qcamera3.exposure",
     "org.codeaurora.qcamera3.tnr_tuning",
     "org.codeaurora.qcamera3.dewarp",
@@ -326,6 +328,11 @@ vendor_tag_info_t qcamera3_strict_antibanding[QCAMERA3_STRICT_ANTIBANDING_END-
     { "strict_antibanding_enable", TYPE_BYTE }
 };
 
+vendor_tag_info_t qcamera3_isp_sensitivity_cfg[QCAMERA3_ISP_SENSITIVITY_CFG_END -
+       QCAMERA3_ISP_SENSITIVITY_CFG_START] = {
+       {"isp_sensitivity", TYPE_FLOAT}
+};
+
 vendor_tag_info_t qcamera3_awb_roi[QCAMERA3_AWB_ROI_END -
         QCAMERA3_AWB_ROI_START] = {
     { "awb_color", TYPE_INT32 }
@@ -383,6 +390,7 @@ vendor_tag_info_t *qcamera3_tag_info[QCAMERA3_SECTIONS_END -
     qcamera3_binning_correction,
     qcamera3_stats,
     qcamera3_wnr,
+    qcamera3_isp_sensitivity_cfg,
     qcamera3_exposure,
     qcamera3_tnr_tuning,
     qcamera3_dewarp,
@@ -507,6 +515,9 @@ uint32_t qcamera3_all_tags[] = {
 
     // QCAMERA3_WNR
     (uint32_t)QCAMERA3_WNR_RANGE,
+
+    //QCAMERA3_ISP_SENSITIVITY_CFG
+    (uint32_t)QCAMERA3_ISP_SENSITIVITY,
 
     // QCAMERA3_EXPOSURE_DATA_START
     (uint32_t)QCAMERA3_EXPOSURE_DATA_ENABLE,
