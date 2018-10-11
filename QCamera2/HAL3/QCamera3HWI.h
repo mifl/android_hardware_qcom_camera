@@ -402,7 +402,7 @@ private:
     static void setPAAFSupport(cam_feature_mask_t& feature_mask,
             cam_stream_type_t stream_type,
             cam_color_filter_arrangement_t filter_arrangement,
-            bool bLDCEnable);
+            bool bLDCEnablem, bool bSHDRFeature);
     int32_t setSensorHDR(metadata_buffer_t *hal_metadata, bool enable,
             bool isVideoHdrEnable = false);
     void cleanLastPendingRequest();
@@ -424,6 +424,7 @@ private:
     QCameraPerfLockMgr mPerfLockMgr;
 
     uint32_t mChannelHandle;
+    bool     mChannelStopped;
 
     void saveExifParams(metadata_buffer_t *metadata);
     mm_jpeg_exif_params_t mExifParams;

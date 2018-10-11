@@ -68,6 +68,7 @@ enum qcamera3_ext_tags qcamera3_ext3_section_bounds[QCAMERA3_SECTIONS_END -
         QCAMERA3_BINNING_CORRECTION_END,
         QCAMERA3_STATS_END,
         QCAMERA3_WNR_END,
+        QCAMERA3_ISP_SENSITIVITY_CFG_END,
         QCAMERA3_EXPOSURE_DATA_END,
         QCAMERA3_TNR_TUNING_END,
         QCAMERA3_DEWARP_END,
@@ -76,7 +77,8 @@ enum qcamera3_ext_tags qcamera3_ext3_section_bounds[QCAMERA3_SECTIONS_END -
         QCAMERA3_LUMA_INFO_END,
         QCAMERA3_LCAC_PROCESSING_END,
         QCAMERA3_HAL_FLUSH_RESTART_END,
-        QCAMERA3_IS_MARGIN_CFG_END
+        QCAMERA3_IS_MARGIN_CFG_END,
+        QCAMERA3_AWB_CFG_END
 };
 
 typedef struct vendor_tag_info {
@@ -111,6 +113,7 @@ const char *qcamera3_ext_section_names[QCAMERA3_SECTIONS_END -
     "org.codeaurora.qcamera3.binning_correction",
     "org.codeaurora.qcamera3.stats",
     "org.codeaurora.qcamera3.wnr",
+    "org.codeaurora.qcamera3.isp_senstivity",
     "org.codeaurora.qcamera3.exposure",
     "org.codeaurora.qcamera3.tnr_tuning",
     "org.codeaurora.qcamera3.dewarp",
@@ -119,7 +122,8 @@ const char *qcamera3_ext_section_names[QCAMERA3_SECTIONS_END -
     "org.codeaurora.qcamera3.luma_info",
     "org.codeaurora.qcamera3.lcac_enable",
     "org.codeaurora.qcamera3.flush_restart",
-    "org.codeaurora.qcamera3.qcamera_is_margin_cfg"
+    "org.codeaurora.qcamera3.qcamera_is_margin_cfg",
+    "org.codeaurora.qcamera3.awb_cfg",
 };
 
 vendor_tag_info_t qcamera3_privatedata[QCAMERA3_PRIVATEDATA_END - QCAMERA3_PRIVATEDATA_START] = {
@@ -326,6 +330,11 @@ vendor_tag_info_t qcamera3_strict_antibanding[QCAMERA3_STRICT_ANTIBANDING_END-
     { "strict_antibanding_enable", TYPE_BYTE }
 };
 
+vendor_tag_info_t qcamera3_isp_sensitivity_cfg[QCAMERA3_ISP_SENSITIVITY_CFG_END -
+       QCAMERA3_ISP_SENSITIVITY_CFG_START] = {
+       {"isp_sensitivity", TYPE_FLOAT}
+};
+
 vendor_tag_info_t qcamera3_awb_roi[QCAMERA3_AWB_ROI_END -
         QCAMERA3_AWB_ROI_START] = {
     { "awb_color", TYPE_INT32 }
@@ -344,6 +353,15 @@ vendor_tag_info_t qcamera3_is_margin_cfg[QCAMERA3_IS_MARGIN_CFG_END -
      { "h_margin", TYPE_FLOAT},
      { "v_margin", TYPE_FLOAT},
 };
+
+vendor_tag_info_t qcamera3_awb_cfg[QCAMERA3_AWB_CFG_END -
+       QCAMERA3_AWB_CFG_START] = {
+       {"awb_color_temp", TYPE_INT32},
+       {"awb_g_gain",    TYPE_FLOAT},
+       {"awb_r_gain",    TYPE_FLOAT},
+       {"awb_b_gain",    TYPE_FLOAT}
+};
+
 
 vendor_tag_info_t qcamera3_lcac_enable[QCAMERA3_LCAC_PROCESSING_END-
         QCAMERA3_LCAC_PROCESSING_START] = {
@@ -383,6 +401,7 @@ vendor_tag_info_t *qcamera3_tag_info[QCAMERA3_SECTIONS_END -
     qcamera3_binning_correction,
     qcamera3_stats,
     qcamera3_wnr,
+    qcamera3_isp_sensitivity_cfg,
     qcamera3_exposure,
     qcamera3_tnr_tuning,
     qcamera3_dewarp,
@@ -392,6 +411,7 @@ vendor_tag_info_t *qcamera3_tag_info[QCAMERA3_SECTIONS_END -
     qcamera3_lcac_enable,
     qcamera3_flush_restart,
     qcamera3_is_margin_cfg,
+    qcamera3_awb_cfg,
 };
 
 uint32_t qcamera3_all_tags[] = {
@@ -508,6 +528,9 @@ uint32_t qcamera3_all_tags[] = {
     // QCAMERA3_WNR
     (uint32_t)QCAMERA3_WNR_RANGE,
 
+    //QCAMERA3_ISP_SENSITIVITY_CFG
+    (uint32_t)QCAMERA3_ISP_SENSITIVITY,
+
     // QCAMERA3_EXPOSURE_DATA_START
     (uint32_t)QCAMERA3_EXPOSURE_DATA_ENABLE,
     (uint32_t)QCAMERA3_EXPOSURE_DATA_REGION_H_NUM,
@@ -555,7 +578,13 @@ uint32_t qcamera3_all_tags[] = {
 
     //QCAMERA3_IS_MARGIN_CFG
     (uint32_t)QCAMERA3_IS_H_MARGIN_CFG,
-    (uint32_t)QCAMERA3_IS_V_MARGIN_CFG
+    (uint32_t)QCAMERA3_IS_V_MARGIN_CFG,
+
+    //QCAMERA3_AWB_CFG
+    (uint32_t)QCAMERA3_AWB_COLORTEMP,
+    (uint32_t)QCAMERA3_AWB_R_GAIN,
+    (uint32_t)QCAMERA3_AWB_G_GAIN,
+    (uint32_t)QCAMERA3_AWB_B_GAIN,
 };
 
 const vendor_tag_ops_t* QCamera3VendorTags::Ops = NULL;
