@@ -6418,12 +6418,11 @@ QCamera3HardwareInterface::translateFromHalMetadata(
                 (size_t) (2 * gCamCapability[mCameraId]->num_color_channels));
     }
 
-#ifndef USE_HAL_3_3
     IF_META_AVAILABLE(int32_t, ispSensitivity, CAM_INTF_META_ISP_SENSITIVITY, metadata) {
         int32_t fwk_ispSensitivity = (int32_t) *ispSensitivity;
-        camMetadata.update(ANDROID_CONTROL_POST_RAW_SENSITIVITY_BOOST, &fwk_ispSensitivity, 1);
+        camMetadata.update(QCAMERA3_ISP_SENSITIVITY, &fwk_ispSensitivity, 1);
+        LOGD("fwk_ispSensitivity %d ", fwk_ispSensitivity);
     }
-#endif
 
     IF_META_AVAILABLE(uint32_t, shadingMode, CAM_INTF_META_SHADING_MODE, metadata) {
         uint8_t fwk_shadingMode = (uint8_t) *shadingMode;
