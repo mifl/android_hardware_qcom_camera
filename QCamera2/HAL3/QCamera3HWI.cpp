@@ -1395,6 +1395,7 @@ void QCamera3HardwareInterface::addToPPFeatureMask(int stream_format,
                 CAM_QCOM_FEATURE_STAGGERED_VIDEO_HDR) {
             mStreamConfigInfo.postprocess_mask[stream_idx] |=
                     CAM_QCOM_FEATURE_STAGGERED_VIDEO_HDR;
+            LOGH("Added SVHDR to pp feature mask");
             if ( mStreamConfigInfo.postprocess_mask[stream_idx] &
                     CAM_QTI_FEATURE_BINNING_CORRECTION) {
                 mStreamConfigInfo.postprocess_mask[stream_idx] &=
@@ -1629,6 +1630,7 @@ int QCamera3HardwareInterface::configureStreamsPerfLocked(
     cam_feature_mask_t commonFeatureMask = 0;
     bool bSmallJpegSize = false;
     bool bLDCEnable = false;
+    bool bSHDRFeature = false;
     uint32_t width_ratio;
     uint32_t height_ratio;
     maxViewfinderSize = gCamCapability[mCameraId]->max_viewfinder_size;
@@ -1740,6 +1742,13 @@ int QCamera3HardwareInterface::configureStreamsPerfLocked(
         if((fwkDeWarpType == true) && (videoWidth > 0) && (videoHeight > 0)) {
           bLDCEnable = true;
         }
+
+        if (gCamCapability[mCameraId]->qcom_supported_feature_mask &
+          CAM_QCOM_FEATURE_STAGGERED_VIDEO_HDR) {
+          bSHDRFeature = true;
+          LOGH("bSHDRFeature is True");
+        }
+
         if (newStream->stream_type == CAMERA3_STREAM_BIDIRECTIONAL ||
                 newStream->stream_type == CAMERA3_STREAM_OUTPUT) {
             switch (newStream->format) {
@@ -2015,7 +2024,7 @@ int QCamera3HardwareInterface::configureStreamsPerfLocked(
     cam_feature_mask_t metadataFeatureMask = CAM_QCOM_FEATURE_NONE;
     setPAAFSupport(metadataFeatureMask, CAM_STREAM_TYPE_METADATA,
             gCamCapability[mCameraId]->color_arrangement,
-            bLDCEnable);
+            bLDCEnable, bSHDRFeature);
     mMetadataChannel = new QCamera3MetadataChannel(mCameraHandle->camera_handle,
                     mChannelHandle, mCameraHandle->ops, captureResultCb,
                     setBufferErrorStatus, &padding_info, metadataFeatureMask, this);
@@ -2152,7 +2161,7 @@ int QCamera3HardwareInterface::configureStreamsPerfLocked(
                 onlyRaw = false; // There is non-raw stream - bypass flag if set
                 mStreamConfigInfo.type[mStreamConfigInfo.num_streams] = CAM_STREAM_TYPE_SNAPSHOT;
                 // No need to check bSmallJpegSize if ZSL is present since JPEG uses ZSL stream
-                if ((m_bIs4KVideo && !isZsl) || (bSmallJpegSize && !isZsl) || (bLDCEnable)) {
+                if ((m_bIs4KVideo && !isZsl) || (bSmallJpegSize && !isZsl) || (bLDCEnable || bSHDRFeature)) {
                      mStreamConfigInfo.postprocess_mask[mStreamConfigInfo.num_streams] =
                              CAM_QCOM_FEATURE_PP_SUPERSET_HAL3|CAM_QTI_FEATURE_SW_TNR;
                      /* Remove rotation if it is not supported
@@ -2213,7 +2222,7 @@ int QCamera3HardwareInterface::configureStreamsPerfLocked(
         setPAAFSupport(mStreamConfigInfo.postprocess_mask[mStreamConfigInfo.num_streams],
                 (cam_stream_type_t) mStreamConfigInfo.type[mStreamConfigInfo.num_streams],
                 gCamCapability[mCameraId]->color_arrangement,
-                bLDCEnable);
+                bLDCEnable, bSHDRFeature);
 
         if (newStream->priv == NULL) {
             //New stream, construct channel
@@ -2457,7 +2466,7 @@ int QCamera3HardwareInterface::configureStreamsPerfLocked(
         cam_feature_mask_t analysisFeatureMask = CAM_QCOM_FEATURE_PP_SUPERSET_HAL3;
         setPAAFSupport(analysisFeatureMask, CAM_STREAM_TYPE_ANALYSIS,
                 gCamCapability[mCameraId]->color_arrangement,
-                bLDCEnable);
+                bLDCEnable, bSHDRFeature);
         cam_analysis_info_t analysisInfo;
         int32_t ret = NO_ERROR;
         ret = mCommon.getAnalysisInfo(
@@ -2503,7 +2512,7 @@ int QCamera3HardwareInterface::configureStreamsPerfLocked(
         setPAAFSupport(rawDumpFeatureMask,
                 CAM_STREAM_TYPE_RAW,
                 gCamCapability[mCameraId]->color_arrangement,
-                bLDCEnable);
+                bLDCEnable, bSHDRFeature);
         mRawDumpChannel = new QCamera3RawDumpChannel(mCameraHandle->camera_handle,
                                   mChannelHandle,
                                   mCameraHandle->ops,
@@ -2528,7 +2537,7 @@ int QCamera3HardwareInterface::configureStreamsPerfLocked(
         setPAAFSupport(mStreamConfigInfo.postprocess_mask[mStreamConfigInfo.num_streams],
                 mStreamConfigInfo.type[mStreamConfigInfo.num_streams],
                 gCamCapability[mCameraId]->color_arrangement,
-                bLDCEnable);
+                bLDCEnable, bSHDRFeature);
         rc = mCommon.getAnalysisInfo(FALSE,
                 mStreamConfigInfo.postprocess_mask[mStreamConfigInfo.num_streams],
                 &analysisInfo);
@@ -2551,7 +2560,7 @@ int QCamera3HardwareInterface::configureStreamsPerfLocked(
         setPAAFSupport(callbackFeatureMask,
                 CAM_STREAM_TYPE_CALLBACK,
                 gCamCapability[mCameraId]->color_arrangement,
-                bLDCEnable);
+                bLDCEnable, bSHDRFeature);
         int32_t ret = NO_ERROR;
         ret = mCommon.getAnalysisInfo(FALSE, callbackFeatureMask, &supportInfo);
         if (ret != NO_ERROR) {
@@ -2592,7 +2601,7 @@ int QCamera3HardwareInterface::configureStreamsPerfLocked(
         setPAAFSupport(mStreamConfigInfo.postprocess_mask[mStreamConfigInfo.num_streams],
                 mStreamConfigInfo.type[mStreamConfigInfo.num_streams],
                 gCamCapability[mCameraId]->color_arrangement,
-                bLDCEnable);
+                bLDCEnable, bSHDRFeature);
         mStreamConfigInfo.num_streams++;
     }
 
@@ -2608,7 +2617,7 @@ int QCamera3HardwareInterface::configureStreamsPerfLocked(
         setPAAFSupport(mStreamConfigInfo.postprocess_mask[mStreamConfigInfo.num_streams],
                 mStreamConfigInfo.type[mStreamConfigInfo.num_streams],
                 gCamCapability[mCameraId]->color_arrangement,
-                bLDCEnable);
+                bLDCEnable, bSHDRFeature);
         mStreamConfigInfo.num_streams++;
     }
     /* In HFR mode, if video stream is not added, create a dummy channel so that
@@ -2620,7 +2629,7 @@ int QCamera3HardwareInterface::configureStreamsPerfLocked(
         setPAAFSupport(dummyFeatureMask,
                 CAM_STREAM_TYPE_VIDEO,
                 gCamCapability[mCameraId]->color_arrangement,
-                bLDCEnable);
+                bLDCEnable, bSHDRFeature);
         mDummyBatchChannel = new QCamera3RegularChannel(mCameraHandle->camera_handle,
                 mChannelHandle,
                 mCameraHandle->ops, captureResultCb,
@@ -2647,7 +2656,7 @@ int QCamera3HardwareInterface::configureStreamsPerfLocked(
         setPAAFSupport(mStreamConfigInfo.postprocess_mask[mStreamConfigInfo.num_streams],
                 mStreamConfigInfo.type[mStreamConfigInfo.num_streams],
                 gCamCapability[mCameraId]->color_arrangement,
-                bLDCEnable);
+                bLDCEnable, bSHDRFeature);
         mStreamConfigInfo.num_streams++;
     }
 
@@ -13473,7 +13482,7 @@ void QCamera3HardwareInterface::setPAAFSupport(
         cam_feature_mask_t& feature_mask,
         cam_stream_type_t stream_type,
         cam_color_filter_arrangement_t filter_arrangement,
-        bool bLDCEnable)
+        bool bLDCEnable, bool bSHDRFeature)
 {
     LOGD("feature_mask=0x%llx; stream_type=%d, filter_arrangement=%d",
             feature_mask, stream_type, filter_arrangement);
@@ -13486,7 +13495,7 @@ void QCamera3HardwareInterface::setPAAFSupport(
         if ((stream_type == CAM_STREAM_TYPE_PREVIEW) ||
                 (stream_type == CAM_STREAM_TYPE_ANALYSIS) ||
                 (stream_type == CAM_STREAM_TYPE_VIDEO) ||
-                (bLDCEnable && stream_type == CAM_STREAM_TYPE_SNAPSHOT)) {
+                ((bLDCEnable || bSHDRFeature) && stream_type == CAM_STREAM_TYPE_SNAPSHOT)) {
             if (!(feature_mask & CAM_QTI_FEATURE_PPEISCORE))
                 feature_mask |= CAM_QCOM_FEATURE_PAAF;
         }
