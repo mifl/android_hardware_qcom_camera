@@ -424,6 +424,7 @@ private:
     QCameraPerfLockMgr mPerfLockMgr;
 
     uint32_t mChannelHandle;
+    bool     mChannelStopped;
 
     void saveExifParams(metadata_buffer_t *metadata);
     mm_jpeg_exif_params_t mExifParams;
