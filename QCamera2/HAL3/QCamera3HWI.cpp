@@ -424,7 +424,6 @@ QCamera3HardwareInterface::QCamera3HardwareInterface(uint32_t cameraId,
       mRawDumpChannel(NULL),
       mDummyBatchChannel(NULL),
       mPerfLockMgr(),
-      m_pFovControl(NULL),
       mChannelHandle(0),
       mFirstConfiguration(true),
       mFlush(false),
@@ -456,6 +455,7 @@ QCamera3HardwareInterface::QCamera3HardwareInterface(uint32_t cameraId,
       mStreamConfig(false),
       mCommon(),
       mQCFARawChannel(NULL),
+      m_pFovControl(NULL),
       mFirstFrameNumberInBatch(0),
       mNeedSensorRestart(false),
       mPreviewStarted(false),
@@ -14691,12 +14691,8 @@ void QCamera3HardwareInterface::setDCFeature(
                 (getHalPPType() != CAM_HAL_PP_TYPE_BOKEH) &&
                 (getHalPPType() != CAM_HAL_PP_TYPE_CLEARSIGHT)) {
             LOGH("SAT flag enabled");
-            if (stream_type == CAM_STREAM_TYPE_VIDEO /*&&
-                !is4k2kVideoResolution()*/) {
-                feature_mask |= CAM_QTI_FEATURE_SAT;
-                LOGH("SAT feature mask set");
-            } else if ((stream_type == CAM_STREAM_TYPE_PREVIEW)||
-                (stream_type == CAM_STREAM_TYPE_CALLBACK)) {
+            if ((stream_type == CAM_STREAM_TYPE_VIDEO) ||
+                (stream_type == CAM_STREAM_TYPE_PREVIEW)) {
                 feature_mask |= CAM_QTI_FEATURE_SAT;
                 LOGH("SAT feature mask set");
             }
@@ -14738,8 +14734,7 @@ void QCamera3HardwareInterface::setDCFeature(
         if (rtbEnabledFlag ||
                 (getHalPPType() == CAM_HAL_PP_TYPE_BOKEH)) {
             LOGH("RTB flag enabled");
-            if ((stream_type == CAM_STREAM_TYPE_PREVIEW)||
-                (stream_type == CAM_STREAM_TYPE_CALLBACK)) {
+            if (stream_type == CAM_STREAM_TYPE_PREVIEW) {
                 feature_mask |= CAM_QTI_FEATURE_RTB;
                 LOGH("RTB feature mask set");
             }
