@@ -54,7 +54,7 @@
 #define CEILING2(X)  (((X) + 0x0001) & 0xFFFE)
 
 #define MAX_ZOOMS_CNT 91
-#define MAX_SIZES_CNT 60
+#define MAX_SIZES_CNT 64
 #define MAX_EXP_BRACKETING_LENGTH 32
 #define MAX_ROI 10
 #define MAX_STREAM_NUM_IN_BUNDLE 8
@@ -2596,7 +2596,7 @@ typedef struct {
     cam_rational_type_t transform_matrix[CC_MATRIX_ROWS][CC_MATRIX_COLS];
 } cam_color_correct_matrix_t;
 
-#define CAM_FOCAL_LENGTHS_MAX     18
+#define CAM_FOCAL_LENGTHS_MAX     24
 #define CAM_APERTURES_MAX         1
 #define CAM_FILTER_DENSITIES_MAX  1
 #define CAM_MAX_MAP_HEIGHT        6

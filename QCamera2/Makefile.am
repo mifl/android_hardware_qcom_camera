@@ -2,6 +2,7 @@ ACLOCAL_AMFLAGS = -I m4
 curr_path = $(top_srcdir)/QCamera2
 
 h_sources = $(curr_path)/QCameraFormat.h
+h_sources += $(curr_path)/HAL3/QCamera3VendorTags.h
 pkgincludedir = $(includedir)/qcom/camera
 library_includedir = $(pkgincludedir)
 library_include_HEADERS = $(h_sources)
