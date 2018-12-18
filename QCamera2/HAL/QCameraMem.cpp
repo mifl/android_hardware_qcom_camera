@@ -1672,6 +1672,11 @@ int QCameraGrallocMemory::displayBuffer(uint32_t index)
         return INVALID_OPERATION;
     }
 
+    if (!mWindow) {
+        ALOGE("Invalid native window");
+        return INVALID_OPERATION;
+    }
+
     err = mWindow->enqueue_buffer(mWindow, (buffer_handle_t *)mBufferHandle[index]);
     if(err != 0) {
         ALOGE("%s: enqueue_buffer failed, err = %d", __func__, err);

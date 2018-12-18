@@ -933,9 +933,25 @@ int32_t QCameraStateMachine::procEvtPreviewingState(qcamera_sm_evt_enum_t evt,
     switch (evt) {
     case QCAMERA_SM_EVT_SET_PREVIEW_WINDOW:
         {
-            // Error setting preview window during previewing
-            ALOGE("Cannot set preview window when preview is running");
-            rc = INVALID_OPERATION;
+            CDBG_HIGH("%s: evt(%d): restart preview when previewing", __func__, evt);
+            // stop preview
+            m_parent->stopPreview();
+            // Clear memory pools
+            m_parent->m_memoryPool.clear();
+            // Set preview window
+            m_parent->setPreviewWindow((struct preview_stream_ops *)payload);
+            // start preview again
+            rc = m_parent->preparePreview();
+            if ((rc == NO_ERROR) &&
+                (m_parent->mPreviewWindow != NULL)) {
+                rc = m_parent->startPreview();
+                if (rc != NO_ERROR) {
+                    m_parent->unpreparePreview();
+                }
+            }
+            if (rc != NO_ERROR) {
+                m_state = QCAMERA_SM_STATE_PREVIEW_STOPPED;
+            }
             result.status = rc;
             result.request_api = evt;
             result.result_type = QCAMERA_API_RESULT_TYPE_DEF;
@@ -1001,9 +1017,14 @@ int32_t QCameraStateMachine::procEvtPreviewingState(qcamera_sm_evt_enum_t evt,
                     // start preview again
                     rc = m_parent->preparePreview();
                     if (rc == NO_ERROR) {
-                        rc = m_parent->startPreview();
-                        if (rc != NO_ERROR) {
-                            m_parent->unpreparePreview();
+                        if (m_parent->mPreviewWindow != NULL) {
+                            rc = m_parent->startPreview();
+                            if (rc != NO_ERROR) {
+                                m_parent->unpreparePreview();
+                            }
+                        } else {
+                            CDBG_HIGH("%s: evt(%d): mPreviewWindow is NULL.",  __func__, evt);
+                            m_state = QCAMERA_SM_STATE_PREVIEW_READY;
                         }
                     }
                     if (rc != NO_ERROR) {

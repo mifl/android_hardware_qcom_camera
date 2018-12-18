@@ -223,11 +223,11 @@ private:
 
 // Gralloc Memory is acquired from preview window
 class QCameraGrallocMemory : public QCameraMemory {
+public:
     enum {
         BUFFER_NOT_OWNED,
         BUFFER_OWNED,
     };
-public:
     QCameraGrallocMemory(camera_request_memory getMemory, void* cbCookie);
     void setNativeWindow(preview_stream_ops_t *anw);
     virtual ~QCameraGrallocMemory();
@@ -248,6 +248,7 @@ public:
     // Returns the buffer index of the dequeued buffer.
     int displayBuffer(uint32_t index);
     void setMaxFPS(int maxFPS);
+    int getMemFlag(int idx) { return mLocalFlag[idx]; }
 
 private:
     buffer_handle_t *mBufferHandle[MM_CAMERA_MAX_NUM_FRAMES];

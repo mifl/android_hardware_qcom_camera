@@ -1602,9 +1602,13 @@ uint8_t QCamera2HardwareInterface::getBufNumRequired(cam_stream_type_t stream_ty
 
     if (!isNoDisplayMode()) {
         if(mPreviewWindow != NULL) {
-            if (mPreviewWindow->get_min_undequeued_buffer_count(mPreviewWindow,&minUndequeCount)
-                != 0) {
-                ALOGE("get_min_undequeued_buffer_count  failed");
+            int err = mPreviewWindow->get_min_undequeued_buffer_count(mPreviewWindow,&minUndequeCount);
+            if (err != NO_ERROR) {
+                ALOGE("get_min_undequeued_buffer_count failed: %s(%d)", strerror(-err), err);
+                // Reset to NULL if checked that PreviewWindow cannot be used.
+                // E.g. Preview size is changed, but window has not been updated.
+                mPreviewWindow = NULL;
+                minUndequeCount = 2;
             }
         } else {
             //preview window might not be set at this point. So, query directly

@@ -743,6 +743,7 @@ void QCamera2HardwareInterface::preview_stream_cb_routine(mm_camera_super_buf_t 
     // Display the buffer.
     CDBG("%p displayBuffer %d E", pme, idx);
     int dequeuedIdx = memory->displayBuffer(idx);
+
     if (dequeuedIdx < 0 || dequeuedIdx >= memory->getCnt()) {
         CDBG_HIGH("%s: Invalid dequeued buffer index %d from display",
               __func__, dequeuedIdx);
@@ -750,7 +751,7 @@ void QCamera2HardwareInterface::preview_stream_cb_routine(mm_camera_super_buf_t 
         // Return dequeued buffer back to driver
         err = stream->bufDone((uint32_t)dequeuedIdx);
         if ( err < 0) {
-            ALOGE("stream bufDone failed %d", err);
+            ALOGE("stream(%d) bufDone failed %d", dequeuedIdx, err);
         }
     }
 
@@ -762,6 +763,14 @@ void QCamera2HardwareInterface::preview_stream_cb_routine(mm_camera_super_buf_t 
             ALOGE("%s: Preview callback was not sent succesfully", __func__);
         }
 
+    }
+
+    if (QCameraGrallocMemory::BUFFER_NOT_OWNED != memory->getMemFlag(idx)) {
+        ALOGE("%s: enqueue buffer fail, bufDone now", __func__);
+        err = stream->bufDone((uint32_t)idx);
+        if ( err < 0) {
+            ALOGE("stream(%d) bufDone failed %d", idx, err);
+        }
     }
 
     free(super_frame);
