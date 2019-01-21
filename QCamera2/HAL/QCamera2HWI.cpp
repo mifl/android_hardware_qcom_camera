@@ -373,6 +373,7 @@ int QCamera2HardwareInterface::start_preview(struct camera_device *device)
     }
     LOGI("[KPI Perf]: E PROFILE_START_PREVIEW camera id %d",
              hw->getCameraId());
+    ATRACE_INT("[KPI Perf] E PROFILE_START_PREVIEW",0);
 
     hw->m_perfLockMgr.acquirePerfLockIfExpired(PERF_LOCK_START_PREVIEW);
     hw->lockAPI();
@@ -392,6 +393,7 @@ int QCamera2HardwareInterface::start_preview(struct camera_device *device)
     }
     hw->unlockAPI();
     LOGI("[KPI Perf]: X ret = %d", ret);
+    ATRACE_INT("[KPI Perf] X PROFILE_START_PREVIEW",1);
     return ret;
 }
 
@@ -416,6 +418,7 @@ void QCamera2HardwareInterface::stop_preview(struct camera_device *device)
     }
     LOGI("[KPI Perf]: E PROFILE_STOP_PREVIEW camera id %d",
              hw->getCameraId());
+    ATRACE_INT("[KPI Perf] E PROFILE_STOP_PREVIEW",0);
 
     // Disable power Hint for preview
     hw->m_perfLockMgr.releasePerfLock(PERF_LOCK_POWERHINT_PREVIEW);
@@ -431,6 +434,7 @@ void QCamera2HardwareInterface::stop_preview(struct camera_device *device)
     hw->unlockAPI();
     hw->m_perfLockMgr.releasePerfLock(PERF_LOCK_STOP_PREVIEW);
     LOGI("[KPI Perf]: X ret = %d", ret);
+    ATRACE_INT("[KPI Perf] X PROFILE_STOP_PREVIEW",1);
 }
 
 /*===========================================================================
@@ -623,6 +627,8 @@ int QCamera2HardwareInterface::pre_start_recording(struct camera_device *device)
     }
     LOGH("[KPI Perf]: E PROFILE_PRE_START_RECORDING camera id %d",
           hw->getCameraId());
+    ATRACE_INT("[KPI Perf] E PROFILE_START_RECORDING",0);
+
     hw->lockAPI();
     qcamera_api_result_t apiResult;
     ret = hw->processAPI(QCAMERA_SM_EVT_PRE_START_RECORDING, NULL);
@@ -632,6 +638,7 @@ int QCamera2HardwareInterface::pre_start_recording(struct camera_device *device)
     }
     hw->unlockAPI();
     LOGH("[KPI Perf]: X");
+    ATRACE_INT("[KPI Perf] X PROFILE_START_RECORDING",1);
     return ret;
 }
 
@@ -711,6 +718,7 @@ void QCamera2HardwareInterface::stop_recording(struct camera_device *device)
 
     LOGI("[KPI Perf]: E PROFILE_STOP_RECORDING camera id %d",
              hw->getCameraId());
+    ATRACE_INT("[KPI Perf] E PROFILE_STOP_RECORDING",0);
 
     hw->lockAPI();
     qcamera_api_result_t apiResult;
@@ -720,6 +728,7 @@ void QCamera2HardwareInterface::stop_recording(struct camera_device *device)
     }
     hw->unlockAPI();
     LOGI("[KPI Perf]: X ret = %d", ret);
+    ATRACE_INT("[KPI Perf] X PROFILE_STOP_RECORDING",1);
 }
 
 /*===========================================================================
@@ -819,6 +828,8 @@ int QCamera2HardwareInterface::auto_focus(struct camera_device *device)
     }
     LOGH("[KPI Perf] : E PROFILE_AUTO_FOCUS camera id %d",
              hw->getCameraId());
+    ATRACE_INT("[KPI Perf] E PROFILE_AUTO_FOCUS",0);
+
     hw->lockAPI();
     qcamera_api_result_t apiResult;
     ret = hw->processAPI(QCAMERA_SM_EVT_START_AUTO_FOCUS, NULL);
@@ -828,7 +839,7 @@ int QCamera2HardwareInterface::auto_focus(struct camera_device *device)
     }
     hw->unlockAPI();
     LOGH("[KPI Perf] : X ret = %d", ret);
-
+    ATRACE_INT("[KPI Perf] X PROFILE_AUTO_FOCUS",1);
     return ret;
 }
 
@@ -856,6 +867,7 @@ int QCamera2HardwareInterface::cancel_auto_focus(struct camera_device *device)
     }
     LOGH("[KPI Perf] : E PROFILE_CANCEL_AUTO_FOCUS camera id %d",
              hw->getCameraId());
+    ATRACE_INT("[KPI Perf] E PROFILE_CANCEL_AUTO_FOCUS",0);
     hw->lockAPI();
     qcamera_api_result_t apiResult;
     ret = hw->processAPI(QCAMERA_SM_EVT_STOP_AUTO_FOCUS, NULL);
@@ -865,6 +877,7 @@ int QCamera2HardwareInterface::cancel_auto_focus(struct camera_device *device)
     }
     hw->unlockAPI();
     LOGH("[KPI Perf] : X ret = %d", ret);
+    ATRACE_INT("[KPI Perf] X PROFILE_CANCEL_AUTO_FOCUS",1);
     return ret;
 }
 
@@ -928,7 +941,7 @@ int QCamera2HardwareInterface::take_picture(struct camera_device *device)
     }
     LOGI("[KPI Perf]: E PROFILE_TAKE_PICTURE camera id %d",
              hw->getCameraId());
-
+    ATRACE_INT("[KPI Perf] E PROFILE_TAKE_PICTURE",0);
     // Acquire the perf lock for JPEG snapshot only
     if (hw->mParameters.isJpegPictureFormat()) {
         if (hw->isDualCamera() && (hw->mParameters.getHalPPType() == CAM_HAL_PP_TYPE_BOKEH)) {
@@ -1028,6 +1041,7 @@ int QCamera2HardwareInterface::take_picture(struct camera_device *device)
     }
     hw->m_bPreparingHardware = false;
     LOGI("[KPI Perf]: X ret = %d", ret);
+    ATRACE_INT("[KPI Perf] X PROFILE_TAKE_PICTURE",1);
     return ret;
 }
 
@@ -1055,6 +1069,7 @@ int QCamera2HardwareInterface::cancel_picture(struct camera_device *device)
     }
     LOGI("[KPI Perf]: E PROFILE_CANCEL_PICTURE camera id %d",
              hw->getCameraId());
+     ATRACE_INT("[KPI Perf] E PROFILE_CANCEL_PICTURE",0);
     hw->lockAPI();
     qcamera_api_result_t apiResult;
     ret = hw->processAPI(QCAMERA_SM_EVT_CANCEL_PICTURE, NULL);
@@ -1064,7 +1079,7 @@ int QCamera2HardwareInterface::cancel_picture(struct camera_device *device)
     }
     hw->unlockAPI();
     LOGI("[KPI Perf]: X camera id %d ret = %d", hw->getCameraId(), ret);
-
+    ATRACE_INT("[KPI Perf] X PROFILE_CANCEL_PICTURE",1);
     return ret;
 }
 
@@ -1525,6 +1540,7 @@ int QCamera2HardwareInterface::close_camera_device(hw_device_t *hw_dev)
         return BAD_VALUE;
     }
     LOGI("[KPI Perf]: E camera id %d", hw->getCameraId());
+    ATRACE_INT("[KPI Perf] E close_camera_device",0);
     delete hw;
 #ifdef FDLEAK_FLAG
     property_get("persist.vendor.camera.fdleak.enable", prop, "0");
@@ -1543,6 +1559,7 @@ int QCamera2HardwareInterface::close_camera_device(hw_device_t *hw_dev)
     }
 #endif
     LOGI("[KPI Perf]: X");
+    ATRACE_INT("[KPI Perf] X close_camera_device",1);
     KPI_ATRACE_CAMSCOPE_END(CAMSCOPE_HAL1_CLOSECAMERA);
     CAMSCOPE_DESTROY(CAMSCOPE_SECTION_HAL);
     return ret;
@@ -1896,7 +1913,7 @@ int QCamera2HardwareInterface::openCamera(struct hw_device_t **hw_device)
     }
     LOGI("[KPI Perf]: E PROFILE_OPEN_CAMERA camera id %d",
             mCameraId);
-
+    ATRACE_INT("[KPI Perf] E PROFILE_OPEN_CAMERA camera id:",mCameraId);
     m_perfLockMgr.acquirePerfLock(PERF_LOCK_OPEN_CAMERA);
 #ifdef FDLEAK_FLAG
     property_get("persist.vendor.camera.fdleak.enable", prop, "0");
@@ -1926,7 +1943,7 @@ int QCamera2HardwareInterface::openCamera(struct hw_device_t **hw_device)
 
     LOGI("[KPI Perf]: X PROFILE_OPEN_CAMERA camera id %d, rc: %d",
             mCameraId, rc);
-
+    ATRACE_INT("[KPI Perf] X PROFILE_OPEN_CAMERA camera id:",mCameraId);
     return rc;
 }
 
@@ -10927,8 +10944,10 @@ int32_t QCamera2HardwareInterface::prepareHardwareForSnapshot(int32_t afNeeded)
 {
     ATRACE_CAMSCOPE_CALL(CAMSCOPE_HAL1_PREPARE_HW_FOR_SNAPSHOT);
     LOGI("[KPI Perf]: Send PREPARE SANSPHOT event");
+    ATRACE_INT("[KPI Perf] E Prepare hardware such as LED afNeeded:",afNeeded);
     return mCameraHandle->ops->prepare_snapshot(getSnapshotHandle(),
                                                 afNeeded);
+    ATRACE_INT("[KPI Perf] X Prepare hardware such as LED afNeeded:",afNeeded);
 }
 
 /*===========================================================================
