@@ -2229,6 +2229,36 @@ int QCamera3HardwareInterface::configureStreamsPerfLocked(
             case HAL_PIXEL_FORMAT_RAW10:
                 mStreamConfigInfo.type[mStreamConfigInfo.num_streams] = CAM_STREAM_TYPE_RAW;
                 mStreamConfigInfo.postprocess_mask[mStreamConfigInfo.num_streams] = CAM_QCOM_FEATURE_NONE;
+                //check downscale in raw 8bit stream
+                if (CAM_SENSOR_MONO == gCamCapability[mCameraId]->sensor_type.sens_type &&
+                  HAL_PIXEL_FORMAT_RAW16 != newStream->format &&
+                  HAL_PIXEL_FORMAT_RAW12 != newStream->format &&
+                  HAL_PIXEL_FORMAT_RAW10 != newStream->format) {
+                    int32_t val;
+                    char prop[PROPERTY_VALUE_MAX];
+                    memset(prop, 0, sizeof(prop));
+                    property_get("persist.camera.raw.ds.enable", prop, "0");
+                    val = atoi(prop);
+                    if (val) {
+                        memset(prop, 0, sizeof(prop));
+                        property_get("persist.camera.raw.ds.width", prop, "0");
+                        mStreamConfigInfo.raw_pp_size.width = atoi(prop);
+                        memset(prop, 0, sizeof(prop));
+                        property_get("persist.camera.raw.ds.height", prop, "0");
+                        val = atoi(prop);
+                        mStreamConfigInfo.raw_pp_size.height = atoi(prop);
+                        if ((mStreamConfigInfo.raw_pp_size.width > 0 &&
+                          mStreamConfigInfo.raw_pp_size.width <= mStreamConfigInfo.stream_sizes[mStreamConfigInfo.num_streams].width) &&
+                          (mStreamConfigInfo.raw_pp_size.height > 0 &&
+                          mStreamConfigInfo.raw_pp_size.height <= mStreamConfigInfo.stream_sizes[mStreamConfigInfo.num_streams].height)) {
+                          mStreamConfigInfo.postprocess_mask[mStreamConfigInfo.num_streams] |= CAM_QCOM_FEATURE_SCALE;
+                        } else {
+                            LOGE("Invalid stream size %dx%d",
+                              mStreamConfigInfo.raw_pp_size.width,
+                              mStreamConfigInfo.raw_pp_size.height);
+                        }
+                   }
+                }
                 isRawStreamRequested = true;
                 break;
             default:
