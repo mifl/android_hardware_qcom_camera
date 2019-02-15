@@ -2229,13 +2229,19 @@ int QCamera3HardwareInterface::configureStreamsPerfLocked(
             case HAL_PIXEL_FORMAT_RAW10:
                 mStreamConfigInfo.type[mStreamConfigInfo.num_streams] = CAM_STREAM_TYPE_RAW;
                 mStreamConfigInfo.postprocess_mask[mStreamConfigInfo.num_streams] = CAM_QCOM_FEATURE_NONE;
-                //check downscale in raw 8bit stream
+                //check denoise and downscale in raw 8bit stream
                 if (CAM_SENSOR_MONO == gCamCapability[mCameraId]->sensor_type.sens_type &&
                   HAL_PIXEL_FORMAT_RAW16 != newStream->format &&
                   HAL_PIXEL_FORMAT_RAW12 != newStream->format &&
                   HAL_PIXEL_FORMAT_RAW10 != newStream->format) {
                     int32_t val;
                     char prop[PROPERTY_VALUE_MAX];
+                    memset(prop, 0, sizeof(prop));
+                    property_get("persist.camera.raw.denoise", prop, "0");
+                    val = atoi(prop);
+                    if (val) {
+                        mStreamConfigInfo.postprocess_mask[mStreamConfigInfo.num_streams] |= CAM_QCOM_FEATURE_DENOISE2D;
+                    }
                     memset(prop, 0, sizeof(prop));
                     property_get("persist.camera.raw.ds.enable", prop, "0");
                     val = atoi(prop);
