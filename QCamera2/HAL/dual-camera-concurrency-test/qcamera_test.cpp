@@ -1634,6 +1634,9 @@ status_t CameraContext::startPreview()
         mParams.set("rdi-mode", "disable");
 
         mParams.set("recording-hint", "true");
+        mParams.set("antibanding", "auto");
+        mParams.set("dis", "enable");
+        mParams.set("video-stabilization", "true");
         mParams.setPreviewSize(previewWidth, previewHeight);
         mParams.setPictureSize(currentPictureSize.width,
             currentPictureSize.height);
