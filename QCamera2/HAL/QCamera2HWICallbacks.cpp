@@ -68,7 +68,7 @@ void QCamera2HardwareInterface::zsl_channel_cb(mm_camera_super_buf_t *recvd_fram
                                                void *userdata)
 {
     ATRACE_CAMSCOPE_CALL(CAMSCOPE_HAL1_ZSL_CH_CB);
-    LOGH("[KPI Perf]: E");
+    LOGH("[KPI Perf]: E camera id %d\n",((QCamera2HardwareInterface *)userdata)->getCameraId());
     ATRACE_INT("[KPI Perf] X zsl_channel_cb: E",0);
     char value[PROPERTY_VALUE_MAX];
     bool dump_raw = false;
@@ -719,7 +719,7 @@ void QCamera2HardwareInterface::synchronous_stream_cb_routine(
     int err = NO_ERROR;
 
     ATRACE_CAMSCOPE_CALL(CAMSCOPE_HAL1_SYNC_STRM_CB);
-    LOGH("[KPI Perf] : BEGIN");
+    LOGH("[KPI Perf] : BEGIN camera id %d\n",((QCamera2HardwareInterface *)userdata)->getCameraId());
     QCamera2HardwareInterface *pme = (QCamera2HardwareInterface *)userdata;
 
     if (pme == NULL) {
@@ -821,7 +821,7 @@ void QCamera2HardwareInterface::preview_stream_cb_routine(mm_camera_super_buf_t 
 {
     CAMSCOPE_UPDATE_FLAGS(CAMSCOPE_SECTION_HAL, kpi_camscope_flags);
     KPI_ATRACE_CAMSCOPE_CALL(CAMSCOPE_HAL1_PREVIEW_STRM_CB);
-    LOGH("[KPI Perf] : BEGIN");
+    LOGH("[KPI Perf] : BEGIN camera id %d\n",((QCamera2HardwareInterface *)userdata)->getCameraId());
     ATRACE_INT("[KPI Perf] preview_stream_cb_routine : BEGIN",0);
     int err = NO_ERROR;
     QCamera2HardwareInterface *pme = (QCamera2HardwareInterface *)userdata;
@@ -1610,7 +1610,7 @@ void QCamera2HardwareInterface::video_stream_cb_routine(mm_camera_super_buf_t *s
     nsecs_t timeStamp = 0;
     bool triggerTCB = FALSE;
 
-    LOGD("[KPI Perf] : BEGIN");
+    LOGD("[KPI Perf] : BEGIN camera id %d\n",((QCamera2HardwareInterface *)userdata)->getCameraId());
     ATRACE_INT("[KPI Perf] E video_stream_cb_routine : BEGIN",0);
     QCamera2HardwareInterface *pme = (QCamera2HardwareInterface *)userdata;
     if (pme == NULL ||
@@ -1813,7 +1813,7 @@ void QCamera2HardwareInterface::snapshot_channel_cb_routine(mm_camera_super_buf_
     char value[PROPERTY_VALUE_MAX];
     QCameraChannel *pChannel = NULL;
 
-    LOGH("[KPI Perf]: E");
+    LOGH("[KPI Perf]: E camera id %d\n",((QCamera2HardwareInterface *)userdata)->getCameraId());
     ATRACE_INT("[KPI Perf] E snapshot_channel_cb_routine",0);
     QCamera2HardwareInterface *pme = (QCamera2HardwareInterface *)userdata;
     if (pme == NULL ||

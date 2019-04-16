@@ -4012,8 +4012,8 @@ int QCamera2HardwareInterface::startPreview()
     KPI_ATRACE_CAMSCOPE_CALL(CAMSCOPE_HAL1_STARTPREVIEW);
     int32_t rc = NO_ERROR;
 
-    LOGI("E ZSL = %d Recording Hint = %d", mParameters.isZSLMode(),
-            mParameters.getRecordingHintValue());
+    LOGI("E ZSL = %d Recording Hint = %d camera_id %d\n", mParameters.isZSLMode(),
+            mParameters.getRecordingHintValue(),getCameraId());
 
     m_perfLockMgr.acquirePerfLockIfExpired(PERF_LOCK_START_PREVIEW);
 
