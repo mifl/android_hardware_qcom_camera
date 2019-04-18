@@ -114,6 +114,17 @@ enum {
 CAMERA_CMD_SET_DISPLAY_ORIENTATION = 3,
 };
 
+static Size default_video_sizes[] = {
+    {1280,720},
+    {640,480},
+    {320,240}
+};
+static Size default_preview_sizes[] = {
+    {640,640},
+    {320,240},
+    {160,120}
+};
+
 /*===========================================================================
  * FUNCTION   : previewCallback
  *
@@ -1606,8 +1617,6 @@ status_t CameraContext::startPreview()
     int ret = NO_ERROR;
     int previewWidth, previewHeight;
     Size calculatedPreviewSize;
-    //Size currentPreviewSize = mSupportedPreviewSizes.itemAt(
-    //    mCurrentPreviewSizeIdx);
     Size currentPictureSize = mSupportedPictureSizes.itemAt(
         mCurrentPictureSizeIdx);
     Size currentVideoSize   = mSupportedVideoSizes.itemAt(
@@ -1636,8 +1645,8 @@ status_t CameraContext::startPreview()
         if ( mRecordingHint ) {
             calculatedPreviewSize =
                 getPreviewSizeFromVideoSizes(currentVideoSize);
-            previewWidth = MAX_PREVIEW_WIDTH;
-            previewHeight = MAX_PREVIEW_HEIGHT;
+            previewWidth = calculatedPreviewSize.width;
+            previewHeight = calculatedPreviewSize.height;
         } else {
             previewWidth = MAX_PREVIEW_WIDTH;
             previewHeight = MAX_PREVIEW_HEIGHT;
@@ -1653,10 +1662,8 @@ status_t CameraContext::startPreview()
 
         mParams.set("rdi-mode", "disable");
 
-        mParams.set("recording-hint", "true");
+        //mParams.set("recording-hint", "true");
         mParams.set("antibanding", "auto");
-        mParams.set("dis", "enable");
-        mParams.set("video-stabilization", "true");
         mParams.setPreviewSize(previewWidth, previewHeight);
         mParams.setPictureSize(currentPictureSize.width,
             currentPictureSize.height);
@@ -1696,9 +1703,17 @@ status_t CameraContext::startPreview()
         mPreviewRunning = true;
     }
 
-    mParams.set(CameraContext::KEY_ZSL, "on");
-    mCamera->setParameters(mParams.flatten());
-    mInterpr->mIsZSLOn = true;
+    if(mRecordingHint){
+        mParams.set(CameraContext::KEY_ZSL, "off");
+        mParams.set("dis", "enable");
+        mCamera->setParameters(mParams.flatten());
+        mParams.set("video-stabilization", "true");
+        mCamera->setParameters(mParams.flatten());
+    }else{
+        mParams.set(CameraContext::KEY_ZSL, "on");
+        mCamera->setParameters(mParams.flatten());
+        mInterpr->mIsZSLOn = true;
+    }
 
     signalFinished();
 
@@ -1720,72 +1735,17 @@ status_t CameraContext::startPreview()
  *==========================================================================*/
 Size CameraContext::getPreviewSizeFromVideoSizes(Size currentVideoSize)
 {
-
-    Size tmpPreviewSize;
     Size PreviewSize;
-    Size PreviewSizes[mSupportedPreviewSizes.size()];
-    double tolerance = 0.00001;
-    double videoRatio;
-    double previewRatio;
-    size_t i = 0;
-    size_t j = 0;
-    int delta;
 
-    // Find all the resolutions with the same aspect ratio and choose the
-    // same or the closest resolution from them. Choose the closest resolution
-    // in case same aspect ratio is not found
-    if (currentVideoSize.width * currentVideoSize.height > 0 &&
-            mSupportedPreviewSizes.size() > 0) {
-        videoRatio = (float)currentVideoSize.width /
-            (float)currentVideoSize.height;
-        for (i=0; i<mSupportedPreviewSizes.size(); i++) {
-            tmpPreviewSize = mSupportedPreviewSizes.itemAt(i);
-            previewRatio = (float)tmpPreviewSize.width /
-                (float)tmpPreviewSize.height;
-            if (fabs(videoRatio - previewRatio) < tolerance) {
-                PreviewSizes[j] = tmpPreviewSize;
-                j++;
-            }
+    for(unsigned int i = 0; i < sizeof(default_preview_sizes)/sizeof(default_preview_sizes[0]); i++){
+        if(currentVideoSize.width > default_preview_sizes[i].width
+            && currentVideoSize.height > default_preview_sizes[i].height){
+            PreviewSize = default_preview_sizes[i];
+            printf("PreviewSize %d x %d\n",PreviewSize.width,PreviewSize.height);
+            break;
         }
-
-        if ( j > 0 ) {
-            delta = abs((currentVideoSize.width *currentVideoSize.height)-
-                (PreviewSizes[0].width * PreviewSizes[0].height));
-            PreviewSize = PreviewSizes[0];
-            for (i=0; i<j; i++) {
-                if(abs(currentVideoSize.width * currentVideoSize.height) -
-                    (PreviewSizes[i].width * PreviewSizes[i].height) <
-                    delta) {
-                    PreviewSize = PreviewSizes[i];
-                    delta = abs((currentVideoSize.width *
-                        currentVideoSize.height) -
-                        (PreviewSizes[i].width * PreviewSizes[i].height));
-                }
-            }
-        } else {
-            // Choose the closest resolution in case same aspect ratio is
-            // not found
-            tmpPreviewSize = mSupportedPreviewSizes.itemAt(j);
-            PreviewSize = tmpPreviewSize;
-            delta = abs(
-                    (currentVideoSize.width * currentVideoSize.height)-
-                    (tmpPreviewSize.width * tmpPreviewSize.height));
-            for (i=0; i<mSupportedPreviewSizes.size(); i++) {
-                tmpPreviewSize = mSupportedPreviewSizes.itemAt(i);
-                if(abs(
-                        (currentVideoSize.width * currentVideoSize.height)-
-                        (tmpPreviewSize.width * tmpPreviewSize.height)) <
-                        delta) {
-                    PreviewSize = tmpPreviewSize;
-                    delta = abs(
-                            (currentVideoSize.width * currentVideoSize.height)-
-                            (tmpPreviewSize.width * tmpPreviewSize.height));
-                }
-            }
-        }
-    } else {
-        memset(&PreviewSize, 0, sizeof(PreviewSize));
     }
+
     return PreviewSize;
 }
 
@@ -2278,7 +2238,7 @@ status_t CameraContext::nextPictureSize()
 
     mParams.setPictureSize(pictureSize.width, pictureSize.height);
     printf("set picture size %dx%d for  camera %d!\n",pictureSize.width, pictureSize.height,mCameraIndex);
-      mCamera->setParameters(mParams.flatten());
+    mCamera->setParameters(mParams.flatten());
     }
     signalFinished();
     return NO_ERROR;
@@ -2341,6 +2301,7 @@ status_t CameraContext::setPictureSize(const char *format)
  *==========================================================================*/
 status_t CameraContext::nextVideoSize()
 {
+    bool satisfy = false;
     useLock();
     if ( mHardwareActive ) {
     Size videoSize;
@@ -2349,15 +2310,25 @@ status_t CameraContext::nextVideoSize()
         mCurrentVideoSizeIdx += 1;
         mCurrentVideoSizeIdx %= mSupportedVideoSizes.size();
         videoSize = mSupportedVideoSizes.itemAt(mCurrentVideoSizeIdx);
-        if(max_res.width >= videoSize.width  && max_res.height >= videoSize.height)
+        if(max_res.width >= videoSize.width  && max_res.height >= videoSize.height){
+            for(unsigned int j = 0; j < sizeof(default_video_sizes)/sizeof(default_video_sizes[0]); j++){
+                if(default_video_sizes[j].width == videoSize.width
+                   && default_video_sizes[j].height == videoSize.height){
+                   satisfy = true;
+                   break;
+                }
+            }
+        }
+        if(satisfy)
            break;
     }
     mParams.setVideoSize(videoSize.width,videoSize.height);
 
     printf("set video size %dx%d for camera %d !\n",videoSize.width, videoSize.height,mCameraIndex);
-        mCamera->setParameters(mParams.flatten());
+    mCamera->setParameters(mParams.flatten());
     }
     signalFinished();
+
     return NO_ERROR;
 }
 
