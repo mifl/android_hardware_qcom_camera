@@ -78,6 +78,7 @@ public:
     status_t takePicture();
     status_t startRecording();
     bool IsRecording();
+    bool IsPreviewing();
     status_t stopRecording();
     status_t startViVRecording();
     status_t stopViVRecording();

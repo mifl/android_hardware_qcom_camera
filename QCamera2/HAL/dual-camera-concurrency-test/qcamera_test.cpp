@@ -95,6 +95,25 @@ int CameraContext::JpegIdx = 0;
 int CameraContext::mPiPIdx = 0;
 const char CameraContext::KEY_ZSL[] = "zsl";
 
+enum {
+/**
+* Set the clockwise rotation of preview display (setPreviewDisplay) in
+* degrees. This affects the preview frames and the picture displayed after
+* snapshot. This method is useful for portrait mode applications. Note
+* that preview display of front-facing cameras is flipped horizontally
+* before the rotation, that is, the image is reflected along the central
+* vertical axis of the camera sensor. So the users can see themselves as
+* looking into a mirror.
+*
+* This does not affect the order of byte array of
+* CAMERA_MSG_PREVIEW_FRAME, CAMERA_MSG_VIDEO_FRAME,
+* CAMERA_MSG_POSTVIEW_FRAME, CAMERA_MSG_RAW_IMAGE, or
+* CAMERA_MSG_COMPRESSED_IMAGE. This is allowed to be set during preview
+* since API level 14.
+*/
+CAMERA_CMD_SET_DISPLAY_ORIENTATION = 3,
+};
+
 /*===========================================================================
  * FUNCTION   : previewCallback
  *
@@ -1476,13 +1495,14 @@ status_t  CameraContext::openCamera()
     mCamera = Camera::connect(mCameraIndex);
 
 #endif
-    mCamera->sendCommand(3/*CAMERA_CMD_SET_DISPLAY_ORIENTATION = 3*/,90, 0);
 
     if ( NULL == mCamera.get() ) {
         printf("Unable to connect to CameraService\n");
         signalFinished();
         return NO_INIT;
     }
+
+    mCamera->sendCommand(CAMERA_CMD_SET_DISPLAY_ORIENTATION,90, 0);
 
     mParams = mCamera->getParameters();
     mParams.getSupportedPreviewSizes(mSupportedPreviewSizes);
@@ -2020,6 +2040,12 @@ bool CameraContext::IsRecording()
 {
     return mRecordRunning;
 }
+
+bool CameraContext::IsPreviewing()
+{
+    return mPreviewRunning;
+}
+
 
 /*===========================================================================
  * FUNCTION   : stopRecording
@@ -2871,13 +2897,18 @@ status_t TestContext::FunctionalTest()
         #if 0
             stat = currentCamera->stopPreview();
         #else
+            if(!currentCamera->IsPreviewing()){
+                printf("please start preview first\n");
+                break;
+            }
             if (mAvailableCameras.size() == 2) {
                 mSaveCurrentCameraIndex = mCurrentCameraIndex;
                 for ( size_t i = 0; i < mAvailableCameras.size(); i++ ) {
                     mCurrentCameraIndex = i;
                     currentCamera = mAvailableCameras.itemAt(
                         mCurrentCameraIndex);
-                    stat = currentCamera->stopPreview();
+                    if(currentCamera->IsPreviewing())
+                        stat = currentCamera->stopPreview();
                 }
                 mCurrentCameraIndex = mSaveCurrentCameraIndex;
             } else {
@@ -2958,6 +2989,10 @@ status_t TestContext::FunctionalTest()
 
         case Interpreter::AUTOFOCUS_CMD:
         {
+            if(!currentCamera->IsPreviewing()){
+                printf("please start preview first\n");
+                break;
+            }
             stat = currentCamera->autoFocus();
         }
             break;
@@ -2967,6 +3002,10 @@ status_t TestContext::FunctionalTest()
         #if 0
             stat = currentCamera->takePicture();
         #else
+            if(!currentCamera->IsPreviewing()){
+                printf("please start preview first\n");
+                break;
+            }
             if (mAvailableCameras.size() == 2) {
                 mSaveCurrentCameraIndex = mCurrentCameraIndex;
                 for ( size_t i = 0; i < mAvailableCameras.size(); i++ ) {
@@ -2979,6 +3018,7 @@ status_t TestContext::FunctionalTest()
             } else {
                 printf("Number of available sensors should be 2\n");
             }
+            usleep(1000U * 2000); //wait 2 seconds to ensure snapshot can be completed.
         #endif
         }
             break;
@@ -3001,7 +3041,8 @@ status_t TestContext::FunctionalTest()
                         printf("it is already in recording state!\n");
                         break;
                     }
-                    stat = currentCamera->stopPreview();
+                    if(currentCamera->IsPreviewing())
+                        stat = currentCamera->stopPreview();
                     stat = currentCamera->configureRecorder();
                     stat = currentCamera->startPreview();
                     stat = currentCamera->startRecording();
@@ -3023,21 +3064,28 @@ status_t TestContext::FunctionalTest()
             stat = currentCamera->unconfigureRecorder();
             stat = currentCamera->startPreview();
         #else
+            if(!currentCamera->IsRecording()){
+                printf("recording is not start yet, please start recording first!\n");
+                break;
+            }
             if (mAvailableCameras.size() == 2) {
                 mSaveCurrentCameraIndex = mCurrentCameraIndex;
                 for ( size_t i = 0; i < mAvailableCameras.size(); i++ ) {
                     mCurrentCameraIndex = i;
                     currentCamera = mAvailableCameras.itemAt(
                         mCurrentCameraIndex);
-                    stat = currentCamera->stopRecording();
-                    stat = currentCamera->stopPreview();
-                    stat = currentCamera->unconfigureRecorder();
-                    stat = currentCamera->startPreview();
+                    if(currentCamera->IsRecording()){
+                        stat = currentCamera->stopRecording();
+                        stat = currentCamera->stopPreview();
+                        stat = currentCamera->unconfigureRecorder();
+                        stat = currentCamera->startPreview();
+                    }
                 }
                 mCurrentCameraIndex = mSaveCurrentCameraIndex;
             } else {
                 printf("Number of available sensors should be 2\n");
             }
+            usleep(1000U * 2000); //delay 2s to ensure video recording can be completed.
         #endif
         }
             break;
@@ -3052,9 +3100,12 @@ status_t TestContext::FunctionalTest()
                     mCurrentCameraIndex = i;
                     currentCamera = mAvailableCameras.itemAt(
                         mCurrentCameraIndex);
-                    stat = currentCamera->stopRecording();
-                    stat = currentCamera->stopPreview();
-                    stat = currentCamera->unconfigureRecorder();
+                    if(currentCamera->IsRecording()){
+                        stat = currentCamera->stopRecording();
+                        stat = currentCamera->unconfigureRecorder();
+                    }
+                    if(currentCamera->IsPreviewing())
+                        stat = currentCamera->stopPreview();
                 }
                 mCurrentCameraIndex = mSaveCurrentCameraIndex;
             } else {
