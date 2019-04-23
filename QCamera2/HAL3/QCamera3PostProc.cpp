@@ -153,6 +153,7 @@ int32_t QCamera3PostProcessor::init(QCamera3StreamMem *memory)
         LOGH("Check and create HAL PP manager if not present");
         createHalPPManager();
     }
+    mFreeJpegSessions.clear();
     return NO_ERROR;
 }
 
@@ -996,6 +997,7 @@ int32_t QCamera3PostProcessor::processJpegSettingData(
         LOGE("invalid jpeg settings pointer");
         return -EINVAL;
     }
+    m_jpegSettingsQ.init();
     return m_jpegSettingsQ.enqueue((void *)jpeg_settings);
 }
 
@@ -1446,9 +1448,27 @@ qcamera_hal3_jpeg_data_t *QCamera3PostProcessor::findJpegJobByJobId(uint32_t job
         return NULL;
     }
 
+    mFreeJpegSessions.push_back(mJpegSessionId);
+    mJpegSessionId = 0;
     // currely only one jpeg job ongoing, so simply dequeue the head
     job = (qcamera_hal3_jpeg_data_t *)m_ongoingJpegQ.dequeue();
     return job;
+}
+
+int QCamera3PostProcessor::releaseFreeJpegSessions()
+{
+    int ret = NO_ERROR;
+    auto it = mFreeJpegSessions.begin();
+    while(it != mFreeJpegSessions.end())
+    {
+        ret = mJpegHandle.destroy_session(*it);
+        if(ret != NO_ERROR)
+        {
+            LOGE("failed to destroy jpeg session %d, non-fatal", *it);
+        }
+        it = mFreeJpegSessions.erase(it);
+    }
+    return ret;
 }
 
 /*===========================================================================
@@ -2870,7 +2890,6 @@ void *QCamera3PostProcessor::dataProcessRoutine(void *data)
             pme->m_inputFWKPPQ.init();
             pme->m_inputMultiReprocQ.init();
             pme->m_inputMetaQ.init();
-            pme->m_jpegSettingsQ.init();
             cam_sem_post(&cmdThread->sync_sem);
 
             break;
@@ -2886,7 +2905,6 @@ void *QCamera3PostProcessor::dataProcessRoutine(void *data)
 
                     pme->releaseJpegJobData(jpeg_job);
                     free(jpeg_job);
-
                     jpeg_job = (qcamera_hal3_jpeg_data_t *)pme->m_ongoingJpegQ.dequeue();
                 }
 
@@ -2895,6 +2913,8 @@ void *QCamera3PostProcessor::dataProcessRoutine(void *data)
                     pme->mJpegHandle.destroy_session(pme->mJpegSessionId);
                     pme->mJpegSessionId = 0;
                 }
+
+                pme->releaseFreeJpegSessions();
 
                 needNewSess = TRUE;
 
@@ -2979,6 +2999,7 @@ void *QCamera3PostProcessor::dataProcessRoutine(void *data)
                                 pme->releaseJpegJobData(jpeg_job);
                                 free(jpeg_job);
                             }
+                            pme->releaseFreeJpegSessions();
                         }
                     }
 

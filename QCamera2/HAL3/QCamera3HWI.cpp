@@ -430,6 +430,7 @@ QCamera3HardwareInterface::QCamera3HardwareInterface(uint32_t cameraId,
       mChannelHandle(0),
       mFirstConfiguration(true),
       mFlush(false),
+      mStreamOnPending(false),
       mFlushPerf(false),
       mHdrFrameNum(0),
       mMultiFrameCaptureNumber(0),
@@ -1758,7 +1759,8 @@ void QCamera3HardwareInterface::rectifyStreamSizesByCamType(
             dim.width = info->stream_sizes[i].width;
             dim.height = info->stream_sizes[i].height;
             //skipping for stream with pp mask set for upscaling/cropping
-            if(isPPMaskSetForScaling(info->postprocess_mask[i]))
+            if(isPPMaskSetForScaling(info->postprocess_mask[i])
+                || (info->type[i] == CAM_STREAM_TYPE_RAW))
             {
                 continue;
             }
@@ -2082,6 +2084,7 @@ int QCamera3HardwareInterface::configureStreamsPerfLocked(
     mQuadraCfaStage = QCFA_INACTIVE;
     m_ppChannelCnt = 1;
     m_bOfflineIsp = false;
+    mStreamOnPending = false;
 
     /* cache fw stream configuration, for internally reconfigure streams and then config "back" */
     cacheFwConfiguredStreams(streamList);
@@ -2216,7 +2219,8 @@ int QCamera3HardwareInterface::configureStreamsPerfLocked(
     count = MIN(gCamCapability[mCameraId]->supported_is_types_cnt, count);
     for (size_t i = 0; i < count; i++) {
         if ((gCamCapability[mCameraId]->supported_is_types[i] == IS_TYPE_EIS_2_0) ||
-            (gCamCapability[mCameraId]->supported_is_types[i] == IS_TYPE_EIS_3_0)) {
+            (gCamCapability[mCameraId]->supported_is_types[i] == IS_TYPE_EIS_3_0) ||
+            (gCamCapability[mCameraId]->supported_is_types[i] == IS_TYPE_VENDOR_EIS)) {
             m_bEisSupported = true;
             break;
         }
@@ -2565,6 +2569,14 @@ int QCamera3HardwareInterface::configureStreamsPerfLocked(
     property_get("persist.vendor.camera.is_type", is_type_value, "4");
     m_bEis3PropertyEnabled = (atoi(is_type_value) == IS_TYPE_EIS_3_0);
 
+    /* get eis information for stream configuration */
+    cam_is_type_t isTypeVideo, isTypePreview;
+    isTypeVideo = static_cast<cam_is_type_t>(atoi(is_type_value));
+
+    property_get("persist.vendor.camera.is_type_preview", is_type_value, "4");
+    isTypePreview = static_cast<cam_is_type_t>(atoi(is_type_value));
+    LOGD("isTypeVideo: %d isTypePreview: %d", isTypeVideo, isTypePreview);
+
     //Create metadata channel and initialize it
     cam_feature_mask_t metadataFeatureMask = CAM_QCOM_FEATURE_NONE;
     setPAAFSupport(metadataFeatureMask, CAM_STREAM_TYPE_METADATA,
@@ -2683,9 +2695,12 @@ int QCamera3HardwareInterface::configureStreamsPerfLocked(
                         mStreamConfigInfo[index].postprocess_mask[stream_index] &=
                                 ~CAM_QCOM_FEATURE_CDS;
                     }
-                    if (m_bEis3PropertyEnabled /* hint for EIS 3 needed here */) {
+                    if (isTypeVideo == IS_TYPE_EIS_3_0 /* hint for EIS 3 needed here */) {
                         mStreamConfigInfo[index].postprocess_mask[stream_index] |=
                             CAM_QTI_FEATURE_PPEISCORE;
+                    } else if (isTypeVideo == IS_TYPE_VENDOR_EIS) {
+                        mStreamConfigInfo[index].postprocess_mask[stream_index] |=
+                            CAM_QTI_FEATURE_VENDOR_EIS;
                     }
                     if(IS_USAGE_HEIF(newStream->usage))
                     {
@@ -2712,6 +2727,10 @@ int QCamera3HardwareInterface::configureStreamsPerfLocked(
                     padding_info.height_padding = CAM_PAD_TO_2;
                     previewSize.width = (int32_t)newStream->width;
                     previewSize.height = (int32_t)newStream->height;
+                    if (isTypePreview == IS_TYPE_VENDOR_EIS /* hint for VENDOR EIS needed here */) {
+                        mStreamConfigInfo[index].postprocess_mask[stream_index] |=
+                            CAM_QTI_FEATURE_VENDOR_EIS;
+                    }
                 }
                 if ((newStream->rotation == CAMERA3_STREAM_ROTATION_90) ||
                         (newStream->rotation == CAMERA3_STREAM_ROTATION_270)) {
@@ -2927,6 +2946,8 @@ int QCamera3HardwareInterface::configureStreamsPerfLocked(
                         if (mStreamConfigInfo[index].type[stream_index] ==
                                 CAM_STREAM_TYPE_VIDEO) {
                             if (m_bEis3PropertyEnabled /* hint for EIS 3 needed here */)
+                                bufferCount = MAX_VIDEO_BUFFERS;
+                            else if (isTypeVideo == IS_TYPE_VENDOR_EIS)
                                 bufferCount = MAX_VIDEO_BUFFERS;
                         }
 
@@ -6357,6 +6378,9 @@ int QCamera3HardwareInterface::processCaptureRequest(
             if (setEis && eis3Supported && (isTypeVideo == IS_TYPE_EIS_3_0)) {
                 mMaxInFlightRequests = MAX_INFLIGHT_EIS_REQUESTS;
             }
+            else if (setEis && (isTypeVideo == IS_TYPE_VENDOR_EIS)) {
+                mMaxInFlightRequests = MAX_INFLIGHT_EIS_REQUESTS;
+            }
 
             // This DC info is required for setting the actual sync type instead of value
             // set in confgure streams
@@ -6937,6 +6961,24 @@ error_exit:
 no_error:
         mPendingLiveRequest = 0;
         mFirstConfiguration = false;
+    }
+    if ((mState == STARTED)&&(mStreamOnPending)){
+        rc = startAllChannels();
+        if (rc < 0) {
+            LOGE("startAllChannels failed");
+            pthread_mutex_unlock(&mMutex);
+            return rc;
+        }
+        if (mChannelHandle) {
+            mCameraHandle->ops->start_channel(mCameraHandle->camera_handle,
+                        mChannelHandle);
+            if (rc < 0) {
+                LOGE("start_channel failed");
+                pthread_mutex_unlock(&mMutex);
+                return rc;
+            }
+        }
+        mStreamOnPending = false;
     }
 
     uint32_t frameNumber = request->frame_number;
@@ -7792,8 +7834,10 @@ no_error:
     LOGD("mPendingLiveRequest = %d", mPendingLiveRequest);
     mState = STARTED;
     if(mHdrSnapshotRunning) {
+        LOGD("blocked for HDR snapshot completion");
         pthread_cond_wait(&mHdrRequestCond, &mMutex);
         mHdrSnapshotRunning = false;
+        LOGD("unblocked ");
     }
     if (mMultiFrameSnapshotRunning) {
         pthread_cond_wait(&mMultiFrameRequestCond, &mMutex);
@@ -7932,6 +7976,7 @@ void QCamera3HardwareInterface::dump(int fd)
  *==========================================================================*/
 int QCamera3HardwareInterface::flush(bool restartChannels)
 {
+    mPerfLockMgr.acquirePerfLock(PERF_LOCK_FLUSH, DEFAULT_PERF_LOCK_TIMEOUT_MS);
     KPI_ATRACE_CAMSCOPE_CALL(CAMSCOPE_HAL3_STOP_PREVIEW);
     int32_t rc = NO_ERROR;
 
@@ -7968,17 +8013,12 @@ int QCamera3HardwareInterface::flush(bool restartChannels)
     }
 
     mFlush = false;
-
-    // Start the Streams/Channels
-    if (restartChannels) {
-        rc = startAllChannels();
-        if (rc < 0) {
-            LOGE("startAllChannels failed");
-            pthread_mutex_unlock(&mMutex);
-            return rc;
-        }
+    if (mState == STARTED)
+    {
+        mStreamOnPending = restartChannels;
     }
     pthread_mutex_unlock(&mMutex);
+    mPerfLockMgr.releasePerfLock(PERF_LOCK_FLUSH);
 
     return 0;
 }
@@ -11051,7 +11091,8 @@ int QCamera3HardwareInterface::initStaticMetadata(uint32_t cameraId)
     count = MIN(gCamCapability[cameraId]->supported_is_types_cnt, count);
     for (size_t i = 0; i < count; i++) {
         if ((gCamCapability[cameraId]->supported_is_types[i] == IS_TYPE_EIS_2_0) ||
-            (gCamCapability[cameraId]->supported_is_types[i] == IS_TYPE_EIS_3_0)) {
+            (gCamCapability[cameraId]->supported_is_types[i] == IS_TYPE_EIS_3_0) ||
+            (gCamCapability[cameraId]->supported_is_types[i] == IS_TYPE_VENDOR_EIS)) {
             eisSupported = true;
             break;
         }
@@ -15376,6 +15417,8 @@ QCamera3ReprocessChannel *QCamera3HardwareInterface::addOfflineReprocChannel(
         bool bMultiFrameCapture_precpp = atoi(prop) ? TRUE : FALSE;
         if(bMultiFrameCapture_precpp) {
             pp_config.feature_mask |= CAM_QTI_FEATURE_MFPROC_PRECPP;
+        } else {
+            pp_config.feature_mask |= CAM_QTI_FEATURE_MFPROC_POSTCPP;
         }
         pp_config.burst_cnt = mMultiFrameCaptureCount;
     }
@@ -16279,9 +16322,13 @@ void QCamera3HardwareInterface::setPAAFSupport(
     case CAM_FILTER_ARRANGEMENT_GRBG:
     case CAM_FILTER_ARRANGEMENT_GBRG:
     case CAM_FILTER_ARRANGEMENT_BGGR:
-        if ((stream_type == CAM_STREAM_TYPE_PREVIEW) ||
-                (stream_type == CAM_STREAM_TYPE_VIDEO)) {
+        if (stream_type == CAM_STREAM_TYPE_PREVIEW) {
             if (!(feature_mask & CAM_QTI_FEATURE_PPEISCORE))
+                feature_mask |= CAM_QCOM_FEATURE_PAAF;
+        }
+        else if (stream_type == CAM_STREAM_TYPE_VIDEO) {
+            if (!(feature_mask & CAM_QTI_FEATURE_PPEISCORE) &&
+                !(feature_mask & CAM_QTI_FEATURE_VENDOR_EIS))
                 feature_mask |= CAM_QCOM_FEATURE_PAAF;
         }
         break;
