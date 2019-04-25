@@ -5305,6 +5305,8 @@ int32_t QCamera3HardwareInterface::orchestrateAdvancedCapture(
 
     if (isHdrSnapshotRequest(request)) {
         isAdvancedCapture = true;
+        if(mPictureChannel != NULL)
+            mPictureChannel->stopPostProc();
         return orchestrateHDRCapture(request);
     }
 
