@@ -2740,6 +2740,22 @@ TestContext::TestContext()
 
         mAvailableCameras.clear();
     }
+
+    sp<CameraContext> currentCamera =
+            mAvailableCameras.itemAt(mCurrentCameraIndex);
+    if (mAvailableCameras.size() == 2) {
+        mSaveCurrentCameraIndex = mCurrentCameraIndex;
+        for ( size_t i = 0; i < mAvailableCameras.size(); i++ ) {
+            mCurrentCameraIndex = i;
+            currentCamera = mAvailableCameras.itemAt(
+                        mCurrentCameraIndex);
+            currentCamera->startPreview();
+        }
+        mCurrentCameraIndex = mSaveCurrentCameraIndex;
+    } else {
+        printf("Number of available sensors should be 2\n");
+    }
+
 }
 
 /*===========================================================================
