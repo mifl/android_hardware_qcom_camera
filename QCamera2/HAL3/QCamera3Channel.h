@@ -727,6 +727,7 @@ private:
     Mutex          mReqFrameListLock;
     bool mZSL;
     bool mLiveShot;
+    bool mInit;
     uint32_t mCompositeHandle;
     pthread_t mAllocThread;
 };
