@@ -1710,9 +1710,12 @@ status_t CameraContext::startPreview()
         mParams.set("video-stabilization", "true");
         mCamera->setParameters(mParams.flatten());
     }else{
-        mParams.set(CameraContext::KEY_ZSL, "on");
+        if(mInterpr->mIsZSLOn == true){
+            mParams.set(CameraContext::KEY_ZSL, "on");
+        }else{
+            mParams.set(CameraContext::KEY_ZSL, "off");
+        }
         mCamera->setParameters(mParams.flatten());
-        mInterpr->mIsZSLOn = true;
     }
 
     signalFinished();
@@ -1810,12 +1813,16 @@ status_t CameraContext::enablePreviewCallbacks()
 status_t CameraContext::takePicture()
 {
     status_t ret = NO_ERROR;
+    char prop[PROPERTY_VALUE_MAX];
+    memset(prop, 0, sizeof(prop));
+    property_get("persist.vendor.camera.feature.restart", prop, "0");
+    int earlyRestart = atoi(prop);
     useLock();
-    if ( mPreviewRunning ) {
+    if ( mPreviewRunning || earlyRestart == 1) {
         ret = mCamera->takePicture(
             CAMERA_MSG_COMPRESSED_IMAGE|
             CAMERA_MSG_RAW_IMAGE);
-        if (!mRecordingHint && !mInterpr->mIsZSLOn) {
+        if (!mRecordingHint && !mInterpr->mIsZSLOn && (earlyRestart == 0)) {
             mPreviewRunning = false;
         }
     } else {
@@ -2440,6 +2447,7 @@ void CameraContext::printMenu(sp<CameraContext> currentCamera)
 {
     if ( !mDoPrintMenu ) return;
     Size currentPictureSize, currentPreviewSize, currentVideoSize;
+    const char *zsl_mode = mParams.get(CameraContext::KEY_ZSL);
 
     assert(currentCamera.get());
 
@@ -2474,6 +2482,8 @@ void CameraContext::printMenu(sp<CameraContext> currentCamera)
             Interpreter::TAKEPICTURE_CMD);
     printf("   %c. Change Picture size\n",
         Interpreter::CHANGE_PICTURE_SIZE_CMD);
+    printf("   %c. zsl:  %s\n", Interpreter::ZSL_CMD,
+        (zsl_mode != NULL) ? zsl_mode : "NULL");
 
     printf("\n   Choice: ");
 }
@@ -2549,6 +2559,22 @@ const char *CameraContext::getZSL()
 }
 
 /*===========================================================================
+ * FUNCTION   : setZSL
+ *
+ * DESCRIPTION: set ZSL value of current camera
+ *
+ * PARAMETERS : zsl value to be set
+ *
+ * RETURN     : None
+ *==========================================================================*/
+void CameraContext::setZSL(const char *value)
+{
+    mParams.set(CameraContext::KEY_ZSL, value);
+    mCamera->setParameters(mParams.flatten());
+}
+
+
+/*===========================================================================
  * FUNCTION   : Interpreter
  *
  * DESCRIPTION: Interpreter constructor
@@ -2605,8 +2631,6 @@ Interpreter::Interpreter(const char *file)
         case '|':
             p1++;
             break;
-        case SWITCH_CAMERA_CMD:
-        case RESUME_PREVIEW_CMD:
         case START_PREVIEW_CMD:
         case STOP_PREVIEW_CMD:
         case CHANGE_PREVIEW_SIZE_CMD:
@@ -2618,8 +2642,6 @@ Interpreter::Interpreter(const char *file)
         case DUMP_CAPS_CMD:
         case AUTOFOCUS_CMD:
         case TAKEPICTURE_CMD:
-        case TAKEPICTURE_IN_PICTURE_CMD:
-        case ENABLE_PRV_CALLBACKS_CMD:
         case EXIT_CMD:
         case ZSL_CMD:
         case DELAY:
@@ -2710,7 +2732,7 @@ TestContext::TestContext()
     mViVVid.destinationCameraID = -1;
     mPiPinUse = false;
     mViVinUse = false;
-    mIsZSLOn = false;
+    mIsZSLOn = true;
     memset(&mViVBuff, 0, sizeof(ViVBuff_t));
 
     ProcessState::self()->startThreadPool();
@@ -2830,6 +2852,9 @@ status_t TestContext::AddScriptFromFile(const char *scriptFile)
 status_t TestContext::FunctionalTest()
 {
     status_t stat = NO_ERROR;
+
+    const char *ZSLStr = NULL;
+    size_t ZSLStrSize = 0;
 
     assert(mAvailableCameras.size());
 
@@ -3074,6 +3099,39 @@ status_t TestContext::FunctionalTest()
             }
             usleep(1000U * 2000); //delay 2s to ensure video recording can be completed.
         #endif
+        }
+            break;
+
+        case Interpreter::ZSL_CMD:
+        {
+
+            if (mAvailableCameras.size() == 2) {
+                mSaveCurrentCameraIndex = mCurrentCameraIndex;
+                for ( size_t i = 0; i < mAvailableCameras.size(); i++ ) {
+                    mCurrentCameraIndex = i;
+                    currentCamera = mAvailableCameras.itemAt(
+                    mCurrentCameraIndex);
+                    ZSLStr = currentCamera->getZSL();
+
+                    if (NULL != ZSLStr) {
+                        ZSLStrSize = strlen(ZSLStr);
+                        if (!strncmp(ZSLStr, "off", ZSLStrSize)) {
+                            currentCamera->setZSL("on");
+                            mIsZSLOn = true;
+                        } else if (!strncmp(ZSLStr, "on", ZSLStrSize)) {
+                            currentCamera->setZSL("off");
+                            mIsZSLOn = false;
+                        } else {
+                            printf("Set zsl failed!\n");
+                        }
+                    } else {
+                            printf("zsl is NULL\n");
+                    }
+                }
+                mCurrentCameraIndex = mSaveCurrentCameraIndex;
+            } else {
+                printf("Number of available sensors should be 2\n");
+            }
         }
             break;
         case Interpreter::EXIT_CMD:
