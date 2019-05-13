@@ -1053,6 +1053,7 @@ void QCamera3ProcessingChannel::streamCbRoutine(mm_camera_super_buf_t *super_fra
                         if (frame->bufs[0]->buf_idx == oldestBufIndex) {
                             LOGE("buffer already in mOutOfSequenceBuffers list");
                             frameIndex = oldestBufIndex;
+                            super_frame = *it;
                             mOutOfSequenceBuffers.erase(it);
                             break;
                         }
@@ -4634,6 +4635,11 @@ int32_t QCamera3PicChannel::stop()
         return rc;
     }
 
+    if (mAllocThread != 0) {
+        pthread_join(mAllocThread,NULL);
+        mAllocThread = 0;
+    }
+
     QCamera3ProcessingChannel::stop();
 
     stopChannel();
@@ -5532,14 +5538,6 @@ int32_t QCamera3PicChannel::notifyDropForPendingBuffer(uint32_t frameNumber,
             {
                 if(info->buffer == buf)
                 {
-                    camera3_notify_msg_t notify_msg;
-                    memset(&notify_msg, 0, sizeof(camera3_notify_msg_t));
-                    notify_msg.type = CAMERA3_MSG_ERROR;
-                    notify_msg.message.error.error_code = CAMERA3_MSG_ERROR_BUFFER;
-                    notify_msg.message.error.error_stream = info->stream;
-                    notify_msg.message.error.frame_number = req.frame_number;
-                    hal_obj->orchestrateNotify(&notify_msg);
-
                     camera3_capture_result_t result;
                     memset(&result, 0, sizeof(camera3_capture_result_t));
                     camera3_stream_buffer_t result_buffer;
