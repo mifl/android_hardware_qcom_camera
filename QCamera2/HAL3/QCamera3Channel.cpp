@@ -5326,11 +5326,6 @@ void QCamera3PicChannel::putStreamBufs()
 {
     QCamera3ProcessingChannel::putStreamBufs();
 
-    if (mAllocThread != 0) {
-        pthread_join(mAllocThread,NULL);
-        mAllocThread = 0;
-    }
-
     mYuvMemory->deallocate();
     delete mYuvMemory;
     mYuvMemory = NULL;
