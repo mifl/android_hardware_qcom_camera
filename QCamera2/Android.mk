@@ -30,6 +30,7 @@ LOCAL_SRC_FILES := \
         util/QCameraCommon.cpp \
         util/QCameraTrace.cpp \
         util/camscope_packet_type.cpp \
+        util/QCameraPerfTranslator.cpp \
         QCamera2Hal.cpp \
         QCamera2Factory.cpp
 
@@ -126,6 +127,7 @@ LOCAL_C_INCLUDES := \
         $(TARGET_OUT_HEADERS)/mm-camera-lib/cp/prebuilt
 
 ifneq (,$(filter $(TRINKET),$(TARGET_BOARD_PLATFORM)))
+LOCAL_CFLAGS += -DTARGET_TRINKET
 LOCAL_C_INCLUDES += \
         system/core/libion/kernel-headers \
         system/core/libion/include

@@ -1,3 +1,4 @@
+
 /* Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -153,6 +154,7 @@
 #define MAX_INFLIGHT_EIS_REQUESTS  10
 
 #define MAX_VIDEO_BUFFERS 30
+#define MAX_DUAL_CAM_MUXER_BUF 3
 
 #define QCAMERA_DUMP_FRM_LOCATION "/data/vendor/camera/"
 #define QCAMERA_MAX_FILEPATH_LENGTH 64
@@ -178,6 +180,8 @@
 
 /*reprocess pipeline stages are pproc and jpeg */
 #define MAX_REPROCESS_PIPELINE_STAGES 2
+
+#define MAX_REPROCESS_POSTCPP_BUFCNT 1
 
 /* Defines the number of rows in the color correction matrix (CCM) */
 #define AWB_NUM_CCM_ROWS (3)
@@ -1034,6 +1038,7 @@ typedef enum {
     IS_TYPE_GA_DIS,
     IS_TYPE_EIS_2_0,
     IS_TYPE_EIS_3_0,
+    IS_TYPE_VENDOR_EIS,
     IS_TYPE_MAX
 } cam_is_type_t;
 
@@ -2753,6 +2758,9 @@ typedef struct {
 #define CAM_QTI_FEATURE_RTB             (((cam_feature_mask_t)1UL)<<45)
 #define CAM_QCOM_FEATURE_LCAC           ((cam_feature_mask_t)1UL<<46)
 #define CAM_QTI_FEATURE_DEPTH_MAP       ((cam_feature_mask_t)1UL<<47)
+#define CAM_QTI_FEATURE_MFPROC_PRECPP   ((cam_feature_mask_t)1UL<<48)
+#define CAM_QTI_FEATURE_MFPROC_POSTCPP   ((cam_feature_mask_t)1UL<<49)
+#define CAM_QTI_FEATURE_VENDOR_EIS      ((cam_feature_mask_t)1UL<<50)
 #define CAM_QCOM_FEATURE_PP_SUPERSET    (CAM_QCOM_FEATURE_DENOISE2D|CAM_QCOM_FEATURE_CROP|\
                                          CAM_QCOM_FEATURE_ROTATION|CAM_QCOM_FEATURE_SHARPNESS|\
                                          CAM_QCOM_FEATURE_SCALE|CAM_QCOM_FEATURE_CAC|\
@@ -3154,5 +3162,19 @@ typedef enum {
     CAM_HAL3_JPEG_TYPE_MAX
 } cam_hal3_JPEG_type_t;
 
+typedef struct {
+    int32_t width;
+    int32_t height;
+    int32_t opClock;
+} cam_sensor_config_t;
+
+typedef struct {
+    uint32_t sensorW;
+    uint32_t sensorH;
+    uint32_t sensorClk;
+    uint8_t hfr;
+    uint8_t fd;
+    uint8_t tnr;
+} cam_perf_info_t;
 
 #endif /* __QCAMERA_TYPES_H__ */
