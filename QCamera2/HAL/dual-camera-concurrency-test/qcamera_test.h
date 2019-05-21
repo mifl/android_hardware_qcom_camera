@@ -192,6 +192,7 @@ private:
 
     size_t mCurrentPreviewSizeIdx;
     Size getPreviewSizeFromVideoSizes(Size currentVideoSize);
+    Size getPreviewSizeFromDisplaySizes();
     size_t mCurrentPictureSizeIdx;
     size_t mCurrentVideoSizeIdx;
     Vector<Size> mSupportedPreviewSizes;

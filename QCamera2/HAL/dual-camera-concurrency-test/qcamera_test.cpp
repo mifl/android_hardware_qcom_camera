@@ -120,8 +120,10 @@ static Size default_video_sizes[] = {
     {320,240}
 };
 static Size default_preview_sizes[] = {
+#ifndef TARGET_FOR_WEARABLE
     {640,640},
     {320,240},
+#endif
     {160,120}
 };
 
@@ -1274,8 +1276,8 @@ status_t CameraContext::createPreviewSurface(int width, int height, int32_t pixF
         if ( mCameraIndex == 1 )
             ret |= mSurfaceControl->setPosition(0, 0);
         else
-            ret |= mSurfaceControl->setPosition((float)(dinfo.w - previewWidth),
-                    (float)(dinfo.h - previewHeight));
+            ret |= mSurfaceControl->setPosition((float) 0,
+                    (float)(previewHeight + 10));
 
         ret |= mSurfaceControl->setSize(previewWidth, previewHeight);
         ret |= mSurfaceControl->show();
@@ -1641,15 +1643,24 @@ status_t CameraContext::startPreview()
 
     if (mResizePreview) {
         mPreviewRunning = false;
+        Size PreviewSize;
+
+        PreviewSize= getPreviewSizeFromDisplaySizes();
 
         if ( mRecordingHint ) {
             calculatedPreviewSize =
                 getPreviewSizeFromVideoSizes(currentVideoSize);
-            previewWidth = calculatedPreviewSize.width;
-            previewHeight = calculatedPreviewSize.height;
+            if(PreviewSize.width > calculatedPreviewSize.width ||
+               PreviewSize.height > calculatedPreviewSize.height){
+                  previewWidth = calculatedPreviewSize.width;
+                  previewHeight = calculatedPreviewSize.height;
+            }else{
+                  previewWidth = PreviewSize.width;
+                  previewHeight = PreviewSize.height;
+            }
         } else {
-            previewWidth = MAX_PREVIEW_WIDTH;
-            previewHeight = MAX_PREVIEW_HEIGHT;
+            previewWidth = PreviewSize.width;
+            previewHeight = PreviewSize.height;
         }
 
         ret = createPreviewSurface(previewWidth,
@@ -1751,6 +1762,27 @@ Size CameraContext::getPreviewSizeFromVideoSizes(Size currentVideoSize)
 
     return PreviewSize;
 }
+
+Size CameraContext::getPreviewSizeFromDisplaySizes()
+{
+    Size PreviewSize;
+    DisplayInfo dinfo;
+    sp<IBinder> display(SurfaceComposerClient::getBuiltInDisplay(
+                        ISurfaceComposer::eDisplayIdMain));
+    SurfaceComposerClient::getDisplayInfo(display, &dinfo);
+
+    for(unsigned int i = 0; i < sizeof(default_preview_sizes)/sizeof(default_preview_sizes[0]); i++){
+        if((dinfo.h / 2) > (unsigned int)default_preview_sizes[i].height){
+            PreviewSize = default_preview_sizes[i];
+            printf("PreviewSize %d x %d\n",PreviewSize.width,PreviewSize.height);
+            break;
+        }
+    }
+
+    return PreviewSize;
+}
+
+
 
 /*===========================================================================
  * FUNCTION   : autoFocus
