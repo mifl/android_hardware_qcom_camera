@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -14558,6 +14558,7 @@ bool QCameraParameters::setStreamConfigure(bool isCapture,
                 stream_config_info.format[stream_config_info.num_streams]);
         stream_config_info.rotation[stream_config_info.num_streams] =
                 getStreamRotation(CAM_STREAM_TYPE_PREVIEW);
+        stream_config_info.dewarp_type[stream_config_info.num_streams] = DEWARP_LDC;
         stream_config_info.num_streams++;
 
         stream_config_info.type[stream_config_info.num_streams] =
@@ -14584,6 +14585,7 @@ bool QCameraParameters::setStreamConfigure(bool isCapture,
                 stream_config_info.format[stream_config_info.num_streams]);
         stream_config_info.rotation[stream_config_info.num_streams] =
                 getStreamRotation(CAM_STREAM_TYPE_SNAPSHOT);
+        stream_config_info.dewarp_type[stream_config_info.num_streams] = DEWARP_LDC;
         stream_config_info.num_streams++;
 
         if (isUBWCEnabled() && getRecordingHintValue() != true) {
@@ -14629,6 +14631,7 @@ bool QCameraParameters::setStreamConfigure(bool isCapture,
             getStreamFormat(CAM_STREAM_TYPE_PREVIEW,
                     stream_config_info.format[stream_config_info.num_streams]);
             stream_config_info.is_type[stream_config_info.num_streams] = mIsTypePreview;
+            stream_config_info.dewarp_type[stream_config_info.num_streams] = DEWARP_LDC;
         }
         stream_config_info.num_streams++;
     } else if (!isCapture) {
@@ -14651,6 +14654,7 @@ bool QCameraParameters::setStreamConfigure(bool isCapture,
             stream_config_info.num_streams++;
 
             stream_config_info.is_type[stream_config_info.num_streams] = mIsTypeVideo;
+            stream_config_info.dewarp_type[stream_config_info.num_streams] = DEWARP_LDC;
             stream_config_info.type[stream_config_info.num_streams] =
                     CAM_STREAM_TYPE_VIDEO;
             getStreamDimension(CAM_STREAM_TYPE_VIDEO,
@@ -14693,6 +14697,7 @@ bool QCameraParameters::setStreamConfigure(bool isCapture,
         getStreamFormat(CAM_STREAM_TYPE_PREVIEW,
                     stream_config_info.format[stream_config_info.num_streams]);
         stream_config_info.is_type[stream_config_info.num_streams] = mIsTypePreview;
+        stream_config_info.dewarp_type[stream_config_info.num_streams] = DEWARP_LDC;
         stream_config_info.rotation[stream_config_info.num_streams] =
                 getStreamRotation(CAM_STREAM_TYPE_PREVIEW);
         stream_config_info.num_streams++;
@@ -14711,6 +14716,7 @@ bool QCameraParameters::setStreamConfigure(bool isCapture,
                 getStreamFormat(CAM_STREAM_TYPE_CALLBACK,
                         stream_config_info.format[stream_config_info.num_streams]);
                 stream_config_info.is_type[stream_config_info.num_streams] = IS_TYPE_NONE;
+                stream_config_info.dewarp_type[stream_config_info.num_streams] = DEWARP_NONE;
                 stream_config_info.rotation[stream_config_info.num_streams] =
                         getStreamRotation(CAM_STREAM_TYPE_CALLBACK);
                 stream_config_info.num_streams++;
@@ -14730,6 +14736,7 @@ bool QCameraParameters::setStreamConfigure(bool isCapture,
                 getStreamFormat(CAM_STREAM_TYPE_SNAPSHOT,
                         stream_config_info.format[stream_config_info.num_streams]);
                 stream_config_info.is_type[stream_config_info.num_streams] = IS_TYPE_NONE;
+                stream_config_info.dewarp_type[stream_config_info.num_streams] = DEWARP_LDC;
                 stream_config_info.rotation[stream_config_info.num_streams] =
                         getStreamRotation(CAM_STREAM_TYPE_SNAPSHOT);
                 stream_config_info.num_streams++;
@@ -14746,6 +14753,7 @@ bool QCameraParameters::setStreamConfigure(bool isCapture,
                 getStreamFormat(CAM_STREAM_TYPE_PREVIEW,
                         stream_config_info.format[stream_config_info.num_streams]);
                 stream_config_info.is_type[stream_config_info.num_streams] = IS_TYPE_NONE;
+                stream_config_info.dewarp_type[stream_config_info.num_streams] = DEWARP_LDC;
                 stream_config_info.rotation[stream_config_info.num_streams] =
                         getStreamRotation(CAM_STREAM_TYPE_PREVIEW);
                 stream_config_info.num_streams++;
@@ -14760,6 +14768,7 @@ bool QCameraParameters::setStreamConfigure(bool isCapture,
                 getStreamFormat(CAM_STREAM_TYPE_POSTVIEW,
                         stream_config_info.format[stream_config_info.num_streams]);
                 stream_config_info.is_type[stream_config_info.num_streams] = IS_TYPE_NONE;
+                stream_config_info.dewarp_type[stream_config_info.num_streams] = DEWARP_NONE;
                 stream_config_info.rotation[stream_config_info.num_streams] =
                         getStreamRotation(CAM_STREAM_TYPE_POSTVIEW);
                 stream_config_info.num_streams++;
@@ -14776,6 +14785,7 @@ bool QCameraParameters::setStreamConfigure(bool isCapture,
             getStreamFormat(CAM_STREAM_TYPE_RAW,
                     stream_config_info.format[stream_config_info.num_streams]);
             stream_config_info.is_type[stream_config_info.num_streams] = IS_TYPE_NONE;
+            stream_config_info.dewarp_type[stream_config_info.num_streams] = DEWARP_NONE;
             stream_config_info.rotation[stream_config_info.num_streams] =
                         getStreamRotation(CAM_STREAM_TYPE_RAW);
             stream_config_info.num_streams++;
@@ -14840,7 +14850,7 @@ bool QCameraParameters::setStreamConfigure(bool isCapture,
 
     for (uint32_t k = 0; k < stream_config_info.num_streams; k++) {
         LOGI("STREAM INFO : type %d, wxh: %d x %d, pp_mask: 0x%llx \
-                Format = %d, dt =%d cid =%d subformat =%d, is_type %d",
+                Format = %d, dt =%d cid =%d subformat =%d, is_type %d dewarp type %d",
                 stream_config_info.type[k],
                 stream_config_info.stream_sizes[k].width,
                 stream_config_info.stream_sizes[k].height,
@@ -14849,7 +14859,7 @@ bool QCameraParameters::setStreamConfigure(bool isCapture,
                 stream_config_info.dt[k],
                 stream_config_info.vc[k],
                 stream_config_info.sub_format_type[k],
-                stream_config_info.is_type[k]);
+                stream_config_info.is_type[k],stream_config_info.dewarp_type[k]);
     }
 
     if ((rc == NO_ERROR) && isDualCamera()) {
@@ -15399,10 +15409,19 @@ int32_t QCameraParameters::updatePpFeatureMask(cam_stream_type_t stream_type) {
         LOGH("add PAAF mask to feature_mask");
     }
 
-    // Enable PPEISCORE for EIS 3.0
-    if ((stream_type == CAM_STREAM_TYPE_VIDEO) &&
-            (getVideoISType() == IS_TYPE_EIS_3_0)) {
-        feature_mask |= CAM_QTI_FEATURE_PPEISCORE;
+    char value[PROPERTY_VALUE_MAX];
+    if(stream_type == CAM_STREAM_TYPE_SNAPSHOT){
+        property_get("persist.vendor.camera.ldc_snapshot", value, "0");
+        if(atoi(value) == 1)
+            feature_mask |= CAM_QTI_FEATURE_PPEISCORE;
+    }else if(stream_type == CAM_STREAM_TYPE_PREVIEW){
+        property_get("persist.vendor.camera.ldc_preview", value, "0");
+        if(atoi(value) == 1)
+            feature_mask |= CAM_QTI_FEATURE_PPEISCORE;
+    }else if(stream_type == CAM_STREAM_TYPE_VIDEO){
+        property_get("persist.vendor.camera.ldc_video", value, "0");
+        if((atoi(value) == 1) || (getVideoISType() == IS_TYPE_EIS_3_0))
+            feature_mask |= CAM_QTI_FEATURE_PPEISCORE;
     }
 
     if(isDualCamera()) {

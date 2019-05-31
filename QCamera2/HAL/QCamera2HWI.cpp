@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -80,6 +80,8 @@ extern "C" {
 #define CAMERA_MIN_METADATA_BUFFERS 10 // Need at least 10 for ZSL snapshot
 #define CAMERA_INITIAL_MAPPABLE_PREVIEW_BUFFERS 5
 #define CAMERA_MAX_PARAM_APPLY_DELAY 3
+
+#define EXTRA_UNMATCHED_FRAME_COUNT 5
 
 namespace qcamera {
 
@@ -3453,6 +3455,7 @@ int QCamera2HardwareInterface::initStreamInfoBuf(cam_stream_type_t stream_type,
     int rc = NO_ERROR;
     int32_t dt = 0;
     int32_t vc = 0;
+    char value[PROPERTY_VALUE_MAX];
 
     memset(streamInfo, 0, sizeof(cam_stream_info_t));
     streamInfo->stream_type = stream_type;
@@ -3492,6 +3495,9 @@ int QCamera2HardwareInterface::initStreamInfoBuf(cam_stream_type_t stream_type,
                         - mParameters.getNumOfExtraHDROutBufsIfNeeded()
                         + mParameters.getNumOfExtraBuffersForImageProc());
         }
+        property_get("persist.vendor.camera.ldc_snapshot", value, "0");
+        if((atoi(value) == 1) && (gCamCapability[mCameraId]->need_dewarp == true))
+            streamInfo->dewarp_type = DEWARP_LDC;
         break;
     case CAM_STREAM_TYPE_RAW: {
             char value[PROPERTY_VALUE_MAX];
@@ -3555,6 +3561,9 @@ int QCamera2HardwareInterface::initStreamInfoBuf(cam_stream_type_t stream_type,
         if (mParameters.isSecureMode()) {
             streamInfo->is_secure = SECURE;
         }
+        property_get("persist.vendor.camera.ldc_video", value, "0");
+        if((atoi(value) == 1) && (gCamCapability[mCameraId]->need_dewarp == true))
+            streamInfo->dewarp_type = DEWARP_LDC;
         break;
     case CAM_STREAM_TYPE_PREVIEW:
         if (mParameters.getRecordingHintValue()) {
@@ -3576,6 +3585,9 @@ int QCamera2HardwareInterface::initStreamInfoBuf(cam_stream_type_t stream_type,
             streamInfo->noFrameExpected = 1;
             LOGH("Avoid Preview stream in snapshot super buf bundle");
         }
+        property_get("persist.vendor.camera.ldc_preview", value, "0");
+        if((atoi(value) == 1) && (gCamCapability[mCameraId]->need_dewarp == true))
+            streamInfo->dewarp_type = DEWARP_LDC;
         break;
     case CAM_STREAM_TYPE_ANALYSIS:
         streamInfo->noFrameExpected = 1;
@@ -8584,7 +8596,14 @@ int32_t QCamera2HardwareInterface::addCaptureChannel()
     } else {
         attr.notify_mode = MM_CAMERA_SUPER_BUF_NOTIFY_CONTINUOUS;
     }
-    attr.max_unmatched_frames = mParameters.getMaxUnmatchedFramesInQueue();
+
+    property_get("persist.vendor.camera.ldc_snapshot", value, "0");
+    if(atoi(value) == 1){
+       attr.max_unmatched_frames = mParameters.getMaxUnmatchedFramesInQueue()
+                                      + EXTRA_UNMATCHED_FRAME_COUNT;
+    }else{
+       attr.max_unmatched_frames = mParameters.getMaxUnmatchedFramesInQueue();
+    }
 
     rc = pChannel->init(&attr,
                         capture_channel_cb_routine,
