@@ -632,6 +632,19 @@ QCamera3HardwareInterface::~QCamera3HardwareInterface()
 
     int32_t rc = 0;
 
+    if (mState == STARTED && mChannelHandle && isSecureMode()) {
+        uint8_t close_hint = 1;
+        LOGD("set_parms for close hint");
+        clear_metadata_buffer(mParameters);
+        ADD_SET_PARAM_ENTRY_TO_BATCH(mParameters, CAM_INTF_PARM_CLOSE_HINT,
+            close_hint);
+        rc = mCameraHandle->ops->set_parms(
+            get_main_camera_handle(mCameraHandle->camera_handle), mParameters);
+        if (rc < 0) {
+            LOGE("set_parms failed for close hint");
+        }
+    }
+
     // Disable power hint and enable the perf lock for close camera
     mPerfLockMgr.releasePerfLock(PERF_LOCK_POWERHINT_ENCODE);
     mPerfLockMgr.releasePerfLock(PERF_LOCK_POWERHINT_HFR);
@@ -715,6 +728,10 @@ QCamera3HardwareInterface::~QCamera3HardwareInterface()
     if (mMetadataChannel) {
         mMetadataChannel->stop();
     }
+    if (mPictureChannel && m_bIsVideo && !m_bIs4KVideo) {
+        mPictureChannel->stopChannel();
+    }
+
     if (mChannelHandle) {
         mCameraHandle->ops->stop_channel(mCameraHandle->camera_handle,
                 mChannelHandle);
@@ -2129,6 +2146,19 @@ int QCamera3HardwareInterface::configureStreamsPerfLocked(
         setDCLowPowerMode(MM_CAMERA_DUAL_CAM);
     }
 
+    if (mState == STARTED && mChannelHandle && isSecureMode()) {
+        uint8_t close_hint = 1;
+        LOGD("set_parms for close hint");
+        clear_metadata_buffer(mParameters);
+        ADD_SET_PARAM_ENTRY_TO_BATCH(mParameters, CAM_INTF_PARM_CLOSE_HINT,
+            close_hint);
+        rc = mCameraHandle->ops->set_parms(
+            get_main_camera_handle(mCameraHandle->camera_handle), mParameters);
+        if (rc < 0) {
+            LOGE("set_parms failed for close hint");
+        }
+    }
+
     /* first invalidate all the steams in the mStreamList
      * if they appear again, they will be validated */
     for (List<stream_info_t*>::iterator it = mStreamInfo.begin();
@@ -2154,6 +2184,10 @@ int QCamera3HardwareInterface::configureStreamsPerfLocked(
         /* If content of mStreamInfo is not 0, there is metadata stream */
         mMetadataChannel->stop();
     }
+    if (mPictureChannel && m_bIsVideo && !m_bIs4KVideo) {
+        mPictureChannel->stopChannel();
+    }
+
     if (mChannelHandle) {
         mCameraHandle->ops->stop_channel(mCameraHandle->camera_handle,
                 mChannelHandle);
@@ -7130,7 +7164,12 @@ no_error:
         if (output.stream->format == HAL_PIXEL_FORMAT_BLOB) {
             //FIXME??:Call function to store local copy of jpeg data for encode params.
             if (m_bIsVideo && !m_bStopPicChannel && !m_bIs4KVideo) {
-                mPictureChannel->startChannel();
+                rc = mPictureChannel->startChannel();
+                if (rc != NO_ERROR) {
+                    LOGE("startchannel is failed for Pic channel %d", rc);
+                    pthread_mutex_unlock(&mMutex);
+                    return rc;
+                }
             }
             if(IS_MULTI_CAMERA &&
                 (channel->getMyHandle() == get_aux_camera_handle(mChannelHandle)))
@@ -15823,6 +15862,20 @@ int32_t QCamera3HardwareInterface::stopAllChannels()
     int32_t rc = NO_ERROR;
 
     LOGD("Stopping all channels");
+
+    if (mState == STARTED && mChannelHandle && isSecureMode()) {
+        uint8_t close_hint = 1;
+        LOGD("set_parms for close hint");
+        clear_metadata_buffer(mParameters);
+        ADD_SET_PARAM_ENTRY_TO_BATCH(mParameters, CAM_INTF_PARM_CLOSE_HINT,
+            close_hint);
+        rc = mCameraHandle->ops->set_parms(
+            get_main_camera_handle(mCameraHandle->camera_handle), mParameters);
+        if (rc < 0) {
+            LOGE("set_parms failed for close hint");
+        }
+    }
+
     // Stop the Streams/Channels
     for (List<stream_info_t *>::iterator it = mStreamInfo.begin();
         it != mStreamInfo.end(); it++) {
@@ -15897,6 +15950,11 @@ int32_t QCamera3HardwareInterface::stopAllChannels()
         LOGE("stopAllChannels failed");
         return rc;
     }
+
+    if (mPictureChannel && m_bIsVideo && !m_bIs4KVideo) {
+        mPictureChannel->stopChannel();
+    }
+
     if (mChannelHandle) {
         mCameraHandle->ops->stop_channel(mCameraHandle->camera_handle,
                 mChannelHandle);
