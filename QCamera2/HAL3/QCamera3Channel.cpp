@@ -551,9 +551,6 @@ void QCamera3Channel::dumpYUV(mm_camera_buf_def_t *frame, cam_dimension_t dim,
         if (mFrmNum == 0) {
             mFrmNum = 10;
         }
-        if (mFrmNum > 256) {
-            mFrmNum = 256;
-        }
         mSkipMode = ((mYUVDump & 0x0000ff00) >> 8);
         if (mSkipMode == 0) {
             mSkipMode = 1;
@@ -4528,6 +4525,7 @@ QCamera3PicChannel::QCamera3PicChannel(uint32_t cam_handle,
             stream->width, stream->height);
     mZSL = isZSL;
     mLiveShot = isLiveshot;
+    m_bStarted = false;
     mInit = false;
     LOGH("Configuring picchannel in %s mode", mZSL ? "ZSL" : "psuedo-ZSL");
     int32_t rc = m_postprocessor.initJpeg(jpegEvtHandle, mpoEvtHandle, &m_max_pic_dim, this);
@@ -4659,8 +4657,6 @@ int32_t QCamera3PicChannel::stop()
 
     QCamera3ProcessingChannel::stop();
 
-    stopChannel();
-
     if (mAuxPicChannel) {
         rc = mAuxPicChannel->stop();
     }
@@ -4669,16 +4665,41 @@ int32_t QCamera3PicChannel::stop()
 
 int32_t QCamera3PicChannel::stopChannel()
 {
+    int32_t rc = NO_ERROR;
+
     if (!mLiveShot) return NO_ERROR;
+
+    if(!m_bStarted) {
+       LOGD("Attempt to stop inactive channel");
+       return rc;
+    }
+
     LOGD("QCamera3PicChannel::stopChannel");
-    return m_camOps->stop_channel(m_camHandle, m_handle);
+
+    rc = m_camOps->stop_channel(m_camHandle, m_handle);
+    if(rc == NO_ERROR){
+       m_bStarted = false;
+    }
+    return rc;
 }
 
 int32_t QCamera3PicChannel::startChannel()
 {
+    int32_t rc = NO_ERROR;
+
+    if(m_bStarted) {
+       LOGD("Attempt to start active channel");
+       return rc;
+    }
+
     if (!mLiveShot) return NO_ERROR;
     LOGD("QCamera3PicChannel::startChannel");
-    return m_camOps->start_channel(m_camHandle, m_handle);
+
+    rc =  m_camOps->start_channel(m_camHandle, m_handle);
+    if(rc == NO_ERROR){
+       m_bStarted = true;
+    }
+    return rc;
 }
 
 void QCamera3PicChannel::setDualChannelMode(bool bMode)
@@ -5113,13 +5134,16 @@ int32_t QCamera3PicChannel::request(buffer_handle_t *buffer,
 int32_t QCamera3PicChannel::requestZSLBuf(uint32_t frameNumber, uint32_t numBuf)
 {
     uint32_t channel_handle = m_handle;
+    uint32_t cam_handle = m_camHandle;
     LOGH("frameNumber %d", frameNumber);
     QCamera3HardwareInterface* hal_obj = (QCamera3HardwareInterface*)mUserData;
     if((hal_obj->getHalPPType() == CAM_HAL_PP_TYPE_BOKEH) && hal_obj->needHALPP()) {
-        if (!mAuxPicChannel) {
+        if (mAuxPicChannel) {
             return NO_ERROR;
         } else {
-            channel_handle = mCompositeHandle;
+            //derive composite handles from metadata channel
+            channel_handle = m_pMetaChannel->getMyHandle();
+            cam_handle = m_pMetaChannel->getMyCamHandle();
         }
     }
 
@@ -5128,7 +5152,7 @@ int32_t QCamera3PicChannel::requestZSLBuf(uint32_t frameNumber, uint32_t numBuf)
     buf.type = MM_CAMERA_REQ_SUPER_BUF;
     buf.num_buf_requested = numBuf;
     buf.frame_idx = frameNumber;
-    return m_camOps->request_super_buf(m_camHandle, channel_handle, &buf);
+    return m_camOps->request_super_buf(cam_handle, channel_handle, &buf);
 }
 
 /*===========================================================================
