@@ -526,7 +526,6 @@ QCamera3HardwareInterface::QCamera3HardwareInterface(uint32_t cameraId,
 
     pthread_cond_init(&mRequestCond, &mCondAttr);
     pthread_cond_init(&mHdrRequestCond, &mCondAttr);
-    pthread_cond_init(&mMultiFrameRequestCond, &mCondAttr);
 
     pthread_condattr_destroy(&mCondAttr);
 
@@ -633,6 +632,19 @@ QCamera3HardwareInterface::~QCamera3HardwareInterface()
 
     int32_t rc = 0;
 
+    if (mState == STARTED && mChannelHandle && isSecureMode()) {
+        uint8_t close_hint = 1;
+        LOGD("set_parms for close hint");
+        clear_metadata_buffer(mParameters);
+        ADD_SET_PARAM_ENTRY_TO_BATCH(mParameters, CAM_INTF_PARM_CLOSE_HINT,
+            close_hint);
+        rc = mCameraHandle->ops->set_parms(
+            get_main_camera_handle(mCameraHandle->camera_handle), mParameters);
+        if (rc < 0) {
+            LOGE("set_parms failed for close hint");
+        }
+    }
+
     // Disable power hint and enable the perf lock for close camera
     mPerfLockMgr.releasePerfLock(PERF_LOCK_POWERHINT_ENCODE);
     mPerfLockMgr.releasePerfLock(PERF_LOCK_POWERHINT_HFR);
@@ -716,6 +728,10 @@ QCamera3HardwareInterface::~QCamera3HardwareInterface()
     if (mMetadataChannel) {
         mMetadataChannel->stop();
     }
+    if (mPictureChannel && m_bIsVideo && !m_bIs4KVideo) {
+        mPictureChannel->stopChannel();
+    }
+
     if (mChannelHandle) {
         mCameraHandle->ops->stop_channel(mCameraHandle->camera_handle,
                 mChannelHandle);
@@ -825,7 +841,6 @@ QCamera3HardwareInterface::~QCamera3HardwareInterface()
     pthread_cond_destroy(&mRequestCond);
     pthread_cond_destroy(&mBuffersCond);
     pthread_cond_destroy(&mHdrRequestCond);
-    pthread_cond_destroy(&mMultiFrameRequestCond);
 
     pthread_mutex_destroy(&mMutex);
     if (mStreamList.streams != NULL) {
@@ -2131,6 +2146,19 @@ int QCamera3HardwareInterface::configureStreamsPerfLocked(
         setDCLowPowerMode(MM_CAMERA_DUAL_CAM);
     }
 
+    if (mState == STARTED && mChannelHandle && isSecureMode()) {
+        uint8_t close_hint = 1;
+        LOGD("set_parms for close hint");
+        clear_metadata_buffer(mParameters);
+        ADD_SET_PARAM_ENTRY_TO_BATCH(mParameters, CAM_INTF_PARM_CLOSE_HINT,
+            close_hint);
+        rc = mCameraHandle->ops->set_parms(
+            get_main_camera_handle(mCameraHandle->camera_handle), mParameters);
+        if (rc < 0) {
+            LOGE("set_parms failed for close hint");
+        }
+    }
+
     /* first invalidate all the steams in the mStreamList
      * if they appear again, they will be validated */
     for (List<stream_info_t*>::iterator it = mStreamInfo.begin();
@@ -2156,6 +2184,10 @@ int QCamera3HardwareInterface::configureStreamsPerfLocked(
         /* If content of mStreamInfo is not 0, there is metadata stream */
         mMetadataChannel->stop();
     }
+    if (mPictureChannel && m_bIsVideo && !m_bIs4KVideo) {
+        mPictureChannel->stopChannel();
+    }
+
     if (mChannelHandle) {
         mCameraHandle->ops->stop_channel(mCameraHandle->camera_handle,
                 mChannelHandle);
@@ -5106,9 +5138,9 @@ void QCamera3HardwareInterface::handleBufferWithLock(
     }
 
     if ((buffer->stream->format == HAL_PIXEL_FORMAT_BLOB) && (frame_number == mMultiFrameCaptureNumber)) {
+        mMaxInFlightRequests -= mMultiFrameCaptureCount;
         mMultiFrameCaptureNumber = 0;
         mMultiFrameSnapshotRunning = false;
-        pthread_cond_signal(&mMultiFrameRequestCond);
     }
 
     pendingRequestIterator i = mPendingRequestsList.begin();
@@ -5573,7 +5605,6 @@ int32_t QCamera3HardwareInterface::orchestrateMultiFrameCapture(
 {
     int32_t ret = NO_ERROR;
     uint32_t originalFrameNumber = request->frame_number;
-    uint32_t originalOutputCount = request->num_output_buffers;
     const camera_metadata_t *original_settings = request->settings;
     List<InternalRequest> internallyRequestedStreams;
     List<InternalRequest> emptyInternalList;
@@ -5590,32 +5621,27 @@ int32_t QCamera3HardwareInterface::orchestrateMultiFrameCapture(
                 InternalRequest streamRequested;
                 streamRequested.meteringOnly = 0;
                 streamRequested.need_metadata = 1;
+                streamRequested.needPastFrame = 1;
                 streamRequested.stream = request->output_buffers[i].stream;
                 internallyRequestedStreams.push_back(streamRequested);
             }
         }
 
-        for (uint32_t j = 0; j < mMultiFrameCaptureCount-1; j++) {
-            request->num_output_buffers = 0;
-            auto itr =  internallyRequestedStreams.begin();
-            if (itr == internallyRequestedStreams.end()) {
-                LOGE("Error Internally Requested Stream list is empty");
-                assert(0);
-            } else {
-                itr->need_metadata = 1;
-                itr->meteringOnly = 0;
-            }
-            _orchestrationDb.generateStoreInternalFrameNumber(internalFrameNumber);
-            request->frame_number = internalFrameNumber;
-            processCaptureRequest(request, internallyRequestedStreams);
-        }
+        //Increase max inflight requests first
+        mMaxInFlightRequests += mMultiFrameCaptureCount;
 
-        request->num_output_buffers = originalOutputCount;
         _orchestrationDb.allocStoreInternalFrameNumber(originalFrameNumber, internalFrameNumber);
         request->frame_number = internalFrameNumber;
         mMultiFrameCaptureNumber = internalFrameNumber;
         mMultiFrameSnapshotRunning = true;
         ret = processCaptureRequest(request, emptyInternalList);
+
+        for (uint32_t j = 0; j < mMultiFrameCaptureCount-1; j++) {
+            request->num_output_buffers = 0;
+            _orchestrationDb.generateStoreInternalFrameNumber(internalFrameNumber);
+            request->frame_number = internalFrameNumber;
+            processCaptureRequest(request, internallyRequestedStreams);
+        }
 
         internallyRequestedStreams.clear();
 
@@ -7138,7 +7164,12 @@ no_error:
         if (output.stream->format == HAL_PIXEL_FORMAT_BLOB) {
             //FIXME??:Call function to store local copy of jpeg data for encode params.
             if (m_bIsVideo && !m_bStopPicChannel && !m_bIs4KVideo) {
-                mPictureChannel->startChannel();
+                rc = mPictureChannel->startChannel();
+                if (rc != NO_ERROR) {
+                    LOGE("startchannel is failed for Pic channel %d", rc);
+                    pthread_mutex_unlock(&mMutex);
+                    return rc;
+                }
             }
             if(IS_MULTI_CAMERA &&
                 (channel->getMyHandle() == get_aux_camera_handle(mChannelHandle)))
@@ -7923,7 +7954,6 @@ no_error:
     }
     if (mMultiFrameSnapshotRunning) {
         mMultiFrameReqLock.unlock();
-        pthread_cond_wait(&mMultiFrameRequestCond, &mMutex);
         mMultiFrameSnapshotRunning = false;
     }
 
@@ -8093,9 +8123,9 @@ int QCamera3HardwareInterface::flush(bool restartChannels)
 
     if(mMultiFrameSnapshotRunning)
     {
+        mMaxInFlightRequests -= mMultiFrameCaptureCount;
         mMultiFrameCaptureNumber = 0;
         mMultiFrameSnapshotRunning = false;
-        pthread_cond_signal(&mMultiFrameRequestCond);
     }
     // Unblock process_capture_request
     mPendingLiveRequest = 0;
@@ -10796,15 +10826,6 @@ size_t QCamera3HardwareInterface::calcMaxJpegSize(uint32_t camera_id)
         temp_height = (size_t)gCamCapability[camera_id]->picture_sizes_tbl[i].height;
         if (temp_width * temp_height > max_jpeg_size ) {
             max_jpeg_size = temp_width * temp_height;
-        }
-    }
-
-    // adjust for quadra cfa
-    if (gCamCapability[camera_id]->is_quadracfa_sensor &&
-            gCamCapability[camera_id]->supported_quadra_cfa_dim_cnt > 0) {
-        cam_dimension_t curr_jpeg_dim = gCamCapability[camera_id]->quadra_cfa_dim[0];
-        if ((size_t)(curr_jpeg_dim.width * curr_jpeg_dim.height) > max_jpeg_size) {
-            max_jpeg_size = curr_jpeg_dim.width * curr_jpeg_dim.height;
         }
     }
 
@@ -15841,6 +15862,20 @@ int32_t QCamera3HardwareInterface::stopAllChannels()
     int32_t rc = NO_ERROR;
 
     LOGD("Stopping all channels");
+
+    if (mState == STARTED && mChannelHandle && isSecureMode()) {
+        uint8_t close_hint = 1;
+        LOGD("set_parms for close hint");
+        clear_metadata_buffer(mParameters);
+        ADD_SET_PARAM_ENTRY_TO_BATCH(mParameters, CAM_INTF_PARM_CLOSE_HINT,
+            close_hint);
+        rc = mCameraHandle->ops->set_parms(
+            get_main_camera_handle(mCameraHandle->camera_handle), mParameters);
+        if (rc < 0) {
+            LOGE("set_parms failed for close hint");
+        }
+    }
+
     // Stop the Streams/Channels
     for (List<stream_info_t *>::iterator it = mStreamInfo.begin();
         it != mStreamInfo.end(); it++) {
@@ -15915,6 +15950,11 @@ int32_t QCamera3HardwareInterface::stopAllChannels()
         LOGE("stopAllChannels failed");
         return rc;
     }
+
+    if (mPictureChannel && m_bIsVideo && !m_bIs4KVideo) {
+        mPictureChannel->stopChannel();
+    }
+
     if (mChannelHandle) {
         mCameraHandle->ops->stop_channel(mCameraHandle->camera_handle,
                 mChannelHandle);
