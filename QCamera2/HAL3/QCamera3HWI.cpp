@@ -4622,12 +4622,14 @@ void QCamera3HardwareInterface::handleMetadataWithLock(
             pMetaDataAux  = metadata;
         }
         resultMetadata = m_pFovControl->processResultMetadata(pMetaDataMain, pMetaDataAux);
-        if (frame_number == UINT32_MAX) {
+        if ((frame_number == UINT32_MAX) || (mHALZSL && (resultMetadata == NULL))) {
             mMetadataChannel->bufDone(metadata_buf);
             free(metadata_buf);
             return;
         } else {
-            if (pMetaDataAux && frame_number_valid && frame_number && this->needHALPP()) {
+            if (pMetaDataAux && frame_number_valid
+                && frame_number && this->needHALPP()
+                && !mHALZSL) {
                 LOGD("found valid metadata for aux %d", frame_number);
                 for (auto req = mPendingBuffersMap.mPendingBuffersInRequest.begin();
                           req != mPendingBuffersMap.mPendingBuffersInRequest.end();
@@ -4865,6 +4867,12 @@ void QCamera3HardwareInterface::handleMetadataWithLock(
             if (i->internalRequestList.size() == 0) {
                 mPendingLiveRequest--;
             }
+
+            if (capture_time == 0) {
+                LOGE("Invalid timestamp in metadata, send result error");
+                notifyError(i->frame_number, CAMERA3_MSG_ERROR_RESULT);
+            }
+
             /* Clear notify_msg structure */
             camera3_notify_msg_t notify_msg;
             memset(&notify_msg, 0, sizeof(camera3_notify_msg_t));
@@ -5066,11 +5074,6 @@ void QCamera3HardwareInterface::handleMetadataWithLock(
     }
 
 done_metadata:
-    for (pendingRequestIterator i = mPendingRequestsList.begin();
-            i != mPendingRequestsList.end() ;i++) {
-        i->pipeline_depth++;
-    }
-
     if(!meta_freed && free_and_bufdone_meta_buf)
     {
         mMetadataChannel->bufDone(metadata_buf);
@@ -7627,7 +7630,7 @@ no_error:
        pInputBuffer = NULL;
     }
 
-    pendingRequest.pipeline_depth = 0;
+    pendingRequest.pipeline_depth = MAX_PIPELINE_DEPTH;
     pendingRequest.partial_result_cnt = 0;
     extractJpegMetadata(mCurJpegMeta, request);
     pendingRequest.jpegMetadata = mCurJpegMeta;
@@ -11969,7 +11972,7 @@ int QCamera3HardwareInterface::initStaticMetadata(uint32_t cameraId)
                       size);
 
     uint8_t max_pipeline_depth =
-        (uint8_t)(MAX_INFLIGHT_REQUESTS + EMPTY_PIPELINE_DELAY + FRAME_SKIP_DELAY);
+        (uint8_t)(MAX_PIPELINE_DEPTH + EMPTY_PIPELINE_DELAY + FRAME_SKIP_DELAY);
     staticInfo.update(ANDROID_REQUEST_PIPELINE_MAX_DEPTH,
                       &max_pipeline_depth,
                       1);
@@ -17496,6 +17499,15 @@ bool QCamera3HardwareInterface::needZSLCapture(const camera3_capture_request_t *
         uint8_t aeLock = frame_settings.find(ANDROID_CONTROL_AE_LOCK).data.u8[0];
         if ((aeLock == ANDROID_CONTROL_AE_LOCK_ON) &&
             frame_settings.exists(ANDROID_CONTROL_AE_EXPOSURE_COMPENSATION)) {
+            needZSL = false;
+        }
+    }
+
+    if (frame_settings.exists(QCAMERA3_USE_ISO_EXP_PRIORITY) &&
+        frame_settings.exists(QCAMERA3_SELECT_PRIORITY)) {
+        cam_priority_mode_t mode =
+                (cam_priority_mode_t)frame_settings.find(QCAMERA3_SELECT_PRIORITY).data.i32[0];
+        if((CAM_ISO_PRIORITY == mode)) {
             needZSL = false;
         }
     }
