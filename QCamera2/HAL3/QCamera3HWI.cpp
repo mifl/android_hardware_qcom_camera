@@ -4622,7 +4622,7 @@ void QCamera3HardwareInterface::handleMetadataWithLock(
             pMetaDataAux  = metadata;
         }
         resultMetadata = m_pFovControl->processResultMetadata(pMetaDataMain, pMetaDataAux);
-        if (frame_number == UINT32_MAX) {
+        if ((frame_number == UINT32_MAX) || (mHALZSL && (resultMetadata == NULL))) {
             mMetadataChannel->bufDone(metadata_buf);
             free(metadata_buf);
             return;
@@ -4867,6 +4867,12 @@ void QCamera3HardwareInterface::handleMetadataWithLock(
             if (i->internalRequestList.size() == 0) {
                 mPendingLiveRequest--;
             }
+
+            if (capture_time == 0) {
+                LOGE("Invalid timestamp in metadata, send result error");
+                notifyError(i->frame_number, CAMERA3_MSG_ERROR_RESULT);
+            }
+
             /* Clear notify_msg structure */
             camera3_notify_msg_t notify_msg;
             memset(&notify_msg, 0, sizeof(camera3_notify_msg_t));
@@ -5068,11 +5074,6 @@ void QCamera3HardwareInterface::handleMetadataWithLock(
     }
 
 done_metadata:
-    for (pendingRequestIterator i = mPendingRequestsList.begin();
-            i != mPendingRequestsList.end() ;i++) {
-        i->pipeline_depth++;
-    }
-
     if(!meta_freed && free_and_bufdone_meta_buf)
     {
         mMetadataChannel->bufDone(metadata_buf);
@@ -7629,7 +7630,7 @@ no_error:
        pInputBuffer = NULL;
     }
 
-    pendingRequest.pipeline_depth = 0;
+    pendingRequest.pipeline_depth = MAX_PIPELINE_DEPTH;
     pendingRequest.partial_result_cnt = 0;
     extractJpegMetadata(mCurJpegMeta, request);
     pendingRequest.jpegMetadata = mCurJpegMeta;
@@ -11971,7 +11972,7 @@ int QCamera3HardwareInterface::initStaticMetadata(uint32_t cameraId)
                       size);
 
     uint8_t max_pipeline_depth =
-        (uint8_t)(MAX_INFLIGHT_REQUESTS + EMPTY_PIPELINE_DELAY + FRAME_SKIP_DELAY);
+        (uint8_t)(MAX_PIPELINE_DEPTH + EMPTY_PIPELINE_DELAY + FRAME_SKIP_DELAY);
     staticInfo.update(ANDROID_REQUEST_PIPELINE_MAX_DEPTH,
                       &max_pipeline_depth,
                       1);
