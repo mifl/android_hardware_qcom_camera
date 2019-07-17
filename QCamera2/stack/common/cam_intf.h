@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -678,11 +678,7 @@ typedef struct cam_capability{
 
     /*Mono Stats support*/
     uint8_t is_mono_stats_suport;
-    /* Supported DeWarp Mode */
-    size_t supported_dewarp_mode_cnt;
-    cam_dewarp_type_t supported_dewarp_modes[DEWARP_MAX];
     uint8_t is_depth_sensor;
-    uint8_t need_dewarp;
     cam_dimension_t single_isp_max_size;
 } cam_capability_t;
 
@@ -797,8 +793,6 @@ typedef struct cam_stream_info {
     /* Image Stabilization type */
     cam_is_type_t is_type;
 
-    /* Dewarping Type */
-    cam_dewarp_type_t dewarp_type;
     /* Signifies whether stream is secure or not*/
     cam_stream_secure_t is_secure;
 
@@ -1196,7 +1190,6 @@ typedef struct {
     INCLUDE(CAM_INTF_META_RTB_DATA,                     cam_rtb_msg_type_t,          1);
     INCLUDE(CAM_INTF_META_DC_CAPTURE,                   uint8_t,                     1);
     INCLUDE(CAM_INTF_PARM_BOKEH_MODE,                   uint8_t,                     1);
-    INCLUDE(CAM_INTF_META_DEWARP_MODE,                  cam_dewarp_type_t,           1);
     INCLUDE(CAM_INTF_META_USERZOOM,                     cam_zoom_info_t,             1);
     INCLUDE(CAM_INTF_META_TUNING_PARAMS,                tuning_params_t,             1);
 } metadata_data_t;
