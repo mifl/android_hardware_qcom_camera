@@ -4788,6 +4788,11 @@ int32_t QCameraParameters::setZslMode(const QCameraParameters& params)
     const char *prev_val  = get(KEY_QC_ZSL);
     int32_t rc = NO_ERROR;
 
+    if (m_bQuadraCfa) {
+        LOGI("zsl is disabled as quadraCFA is required");
+        return rc;
+    }
+
     if(m_bForceZslMode) {
         if (!m_bZslMode) {
             // Force ZSL mode to ON
