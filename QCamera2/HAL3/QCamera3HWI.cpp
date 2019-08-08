@@ -3242,8 +3242,8 @@ void QCamera3HardwareInterface::handleMetadataWithLock(
 
     //not in flush
     metadata_buffer_t *metadata = (metadata_buffer_t *)metadata_buf->bufs[0]->buffer;
-    int32_t frame_number_valid, urgent_frame_number_valid;
-    uint32_t frame_number, urgent_frame_number;
+    int32_t frame_number_valid, urgent_frame_number_valid, shutter_frame_num_valid;
+    uint32_t frame_number, urgent_frame_number, shutter_frame_number;
     int64_t capture_time;
     nsecs_t currentSysTime;
 
@@ -3255,6 +3255,10 @@ void QCamera3HardwareInterface::handleMetadataWithLock(
             POINTER_OF_META(CAM_INTF_META_URGENT_FRAME_NUMBER_VALID, metadata);
     uint32_t *p_urgent_frame_number =
             POINTER_OF_META(CAM_INTF_META_URGENT_FRAME_NUMBER, metadata);
+    int32_t *p_shutter_frame_number_valid =
+            POINTER_OF_META(CAM_INTF_META_SHUTTER_FRAME_NUMBER_VALID, metadata);
+    uint32_t *p_shutter_frame_number =
+            POINTER_OF_META(CAM_INTF_META_SHUTTER_FRAME_NUMBER, metadata);
     IF_META_AVAILABLE(cam_stream_ID_t, p_cam_frame_drop, CAM_INTF_META_FRAME_DROPPED,
             metadata) {
         LOGD("Dropped frame info for frame_number_valid %d, frame_number %d",
@@ -3276,6 +3280,12 @@ void QCamera3HardwareInterface::handleMetadataWithLock(
     urgent_frame_number_valid = *p_urgent_frame_number_valid;
     urgent_frame_number =       *p_urgent_frame_number;
     currentSysTime =            systemTime(CLOCK_MONOTONIC);
+
+    shutter_frame_num_valid =   *p_shutter_frame_number_valid;
+    shutter_frame_number =      *p_shutter_frame_number;
+
+    LOGD("shutter_frame_num_valid: %d", shutter_frame_num_valid);
+    LOGD("shutter_frame_num: %d", shutter_frame_number);
 
     // Detect if buffers from any requests are overdue
     for (auto &req : mPendingBuffersMap.mPendingBuffersInRequest) {
@@ -3347,6 +3357,33 @@ void QCamera3HardwareInterface::handleMetadataWithLock(
         }
     }
 
+    if(shutter_frame_num_valid) {
+
+        for (pendingRequestIterator i =
+                mPendingRequestsList.begin(); i != mPendingRequestsList.end(); i++) {
+            if (i->frame_number == shutter_frame_number) {
+                int64_t shutter_time;
+                camera3_notify_msg_t notify_msg;
+
+                shutter_time = capture_time;
+
+                LOGD("notify shutter - shutter_frame_number: %d, "
+                     "exposure_start: %llu, "
+                     "shutter time: %llu",
+                     shutter_frame_number,
+                     capture_time, shutter_time);
+
+                memset(&notify_msg, 0, sizeof(camera3_notify_msg_t));
+                notify_msg.type = CAMERA3_MSG_SHUTTER;
+                notify_msg.message.shutter.frame_number = shutter_frame_number;
+                notify_msg.message.shutter.timestamp = (uint64_t)shutter_time;
+                orchestrateNotify(&notify_msg);
+
+                i->timestamp = shutter_time;
+                break;
+            }
+        }
+    }
     if (!frame_number_valid) {
         LOGD("Not a valid normal frame number, used as SOF only");
         if (free_and_bufdone_meta_buf) {
@@ -3459,17 +3496,6 @@ void QCamera3HardwareInterface::handleMetadataWithLock(
         } else {
             mPendingLiveRequest--;
             /* Clear notify_msg structure */
-            camera3_notify_msg_t notify_msg;
-            memset(&notify_msg, 0, sizeof(camera3_notify_msg_t));
-
-            // Send shutter notify to frameworks
-            notify_msg.type = CAMERA3_MSG_SHUTTER;
-            notify_msg.message.shutter.frame_number = i->frame_number;
-            notify_msg.message.shutter.timestamp = (uint64_t)capture_time;
-            orchestrateNotify(&notify_msg);
-
-            i->timestamp = capture_time;
-
             /* Set the timestamp in display metadata so that clients aware of
                private_handle such as VT can use this un-modified timestamps.
                Camera framework is unaware of this timestamp and cannot change this */
@@ -3884,6 +3910,9 @@ void QCamera3HardwareInterface::handleBufferWithLock(
             LOGD("Notify reprocess now %d!", frame_number);
             i = erasePendingRequest(i);
         } else {
+            camera3_capture_result_t result;
+            memset(&result, 0, sizeof(camera3_capture_result_t));
+
             for (List<RequestedBufferInfo>::iterator j = i->buffers.begin();
                 j != i->buffers.end(); j++) {
                 if (j->stream == buffer->stream) {
@@ -3896,6 +3925,62 @@ void QCamera3HardwareInterface::handleBufferWithLock(
                         LOGH("cache buffer %p at result frame_number %u",
                              buffer->buffer, frame_number);
                     }
+                }
+            }
+
+            result.frame_number = i->frame_number;
+            result.input_buffer = i->input_buffer;
+            result.num_output_buffers = 0;
+            result.output_buffers = NULL;
+            for (List<RequestedBufferInfo>::iterator j = i->buffers.begin();
+                        j != i->buffers.end(); j++) {
+                if (j->buffer) {
+                    result.num_output_buffers++;
+                }
+            }
+
+            if (result.num_output_buffers > 0) {
+                camera3_stream_buffer_t *result_buffers =
+                    new camera3_stream_buffer_t[result.num_output_buffers];
+                if (result_buffers != NULL) {
+                    size_t result_buffers_idx = 0;
+                    for (List<RequestedBufferInfo>::iterator j = i->buffers.begin();
+                            j != i->buffers.end(); j++) {
+                        if (j->buffer) {
+                            List<PendingFrameDropInfo>::iterator m;
+                            for (m = mPendingFrameDropList.begin();
+                                    m != mPendingFrameDropList.end(); m++) {
+                                QCamera3Channel *channel = (QCamera3Channel *)
+                                        j->buffer->stream->priv;
+                                uint32_t streamID = channel->getStreamID(
+                                            channel->getStreamTypeMask());
+                                if((m->stream_ID == streamID) &&
+                                        (m->frame_number == frame_number)) {
+                                    j->buffer->status = CAMERA3_BUFFER_STATUS_ERROR;
+                                    LOGE("Stream STATUS_ERROR frame_number=%u,"
+                                         "streamID=%u",
+                                         frame_number, streamID);
+                                    m = mPendingFrameDropList.erase(m);
+                                    break;
+                                }
+                            }
+                            j->buffer->status |=
+                                    mPendingBuffersMap.getBufErrStatus(
+                                        j->buffer->buffer);
+                            mPendingBuffersMap.removeBuf(j->buffer->buffer);
+                            result_buffers[result_buffers_idx++] = *(j->buffer);
+                            free(j->buffer);
+                            j->buffer = NULL;
+                        }
+                    }
+
+                    result.output_buffers = result_buffers;
+                    orchestrateResult(&result);
+                    LOGD("buffer frame_number = %u, capture_time = %lld",
+                            result.frame_number, i->timestamp);
+                    delete[] result_buffers;
+                } else {
+                    LOGE("Fatal error: out of memory");
                 }
             }
         }
@@ -7628,7 +7713,10 @@ QCamera3HardwareInterface::translateCbUrgentMetadataToResultMetadata
     CameraMetadata camMetadata;
     camera_metadata_t *resultMetadata;
 
-
+    IF_META_AVAILABLE(int64_t, sensorExpTime, CAM_INTF_META_SENSOR_EXPOSURE_TIME, metadata) {
+        LOGD("sensorExpTime = %lld", *sensorExpTime);
+        camMetadata.update(ANDROID_SENSOR_EXPOSURE_TIME , sensorExpTime, 1);
+    }
     IF_META_AVAILABLE(uint32_t, whiteBalanceState, CAM_INTF_META_AWB_STATE, metadata) {
         uint8_t fwk_whiteBalanceState = (uint8_t) *whiteBalanceState;
         camMetadata.update(ANDROID_CONTROL_AWB_STATE, &fwk_whiteBalanceState, 1);

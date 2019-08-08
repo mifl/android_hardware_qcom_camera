@@ -2178,8 +2178,10 @@ typedef enum {
     CAM_INTF_META_FRAME_NUMBER_VALID,
     /* Whether the urgent metadata maps to a valid frame number */
     CAM_INTF_META_URGENT_FRAME_NUMBER_VALID,
+    /* Whether the shutter metadata maps to a valid frame number */
+    CAM_INTF_META_SHUTTER_FRAME_NUMBER_VALID,
     /* Whether the stream buffer corresponding this frame is dropped or not */
-    CAM_INTF_META_FRAME_DROPPED, /* 100 */
+    CAM_INTF_META_FRAME_DROPPED, /* 102 */
     /* COLOR CORRECTION.*/
     CAM_INTF_META_COLOR_CORRECT_MODE,
     /* A transform matrix to chromatically adapt pixels in the CIE XYZ (1931)
@@ -2198,6 +2200,9 @@ typedef enum {
     /* A frame counter set by the framework. Must be maintained unchanged in
      * output frame. */
     CAM_INTF_META_URGENT_FRAME_NUMBER,
+    /* A frame counter set by the framework. Must be maintained unchanged in
+     * output frame. */
+    CAM_INTF_META_SHUTTER_FRAME_NUMBER,
     /*Number of streams and size of streams in current configuration*/
     CAM_INTF_META_STREAM_INFO,
     /* List of areas to use for metering */
