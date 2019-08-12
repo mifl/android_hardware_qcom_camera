@@ -2076,6 +2076,7 @@ typedef enum {
     CAM_INTF_PARM_EV_STEP,
     CAM_INTF_PARM_AEC_LOCK,
     CAM_INTF_PARM_FPS_RANGE, /* 10 */
+    CAM_INTF_PARM_FPS_RANGE_IMMEDIATE,
     CAM_INTF_PARM_AWB_LOCK,
     CAM_INTF_PARM_EFFECT,
     CAM_INTF_PARM_RAW_DIMENSION,
@@ -2287,9 +2288,13 @@ typedef enum {
     /* Duration from start of frame exposure to start of next frame exposure,
      * in nanoseconds */
     CAM_INTF_META_SENSOR_FRAME_DURATION, /* 140 */
+
+    CAM_INTF_META_SENSOR_FRAME_DURATION_IMMEDIATE,
     /* Gain applied to image data. Must be implemented through analog gain only
      * if set to values below 'maximum analog sensitivity'. */
     CAM_INTF_META_SENSOR_SENSITIVITY,
+    /* Time at start of exposure of first row urgent data */
+    CAM_INTF_META_SENSOR_SENSITIVITY_IMMEDIATE,
     /* Time at start of exposure of first row */
     CAM_INTF_META_SENSOR_TIMESTAMP,
     /* Duration b/w start of first row exposure and the start of last
@@ -2321,6 +2326,7 @@ typedef enum {
     CAM_INTF_META_TONEMAP_CURVES,
 
     CAM_INTF_META_FLASH_MODE,
+    CAM_INTF_META_FLASH_MODE_IMMEDIATE,
     /* 2D array of gain factors for each color channel that was used to
      * compensate for lens shading for this frame */
     CAM_INTF_META_LENS_SHADING_MAP,

@@ -988,6 +988,7 @@ typedef struct {
     INCLUDE(CAM_INTF_META_FLASH_POWER,                  uint32_t,                    1);
     INCLUDE(CAM_INTF_META_FLASH_FIRING_TIME,            int64_t,                     1);
     INCLUDE(CAM_INTF_META_FLASH_MODE,                   uint32_t,                    1);
+    INCLUDE(CAM_INTF_META_FLASH_MODE_IMMEDIATE,         uint32_t,                    1);
     INCLUDE(CAM_INTF_META_FLASH_STATE,                  int32_t,                     1);
     INCLUDE(CAM_INTF_META_HOTPIXEL_MODE,                uint32_t,                    1);
     INCLUDE(CAM_INTF_META_LENS_APERTURE,                float,                       1);
@@ -1007,7 +1008,9 @@ typedef struct {
     INCLUDE(CAM_INTF_META_SCENE_FLICKER,                uint32_t,                    1);
     INCLUDE(CAM_INTF_META_SENSOR_EXPOSURE_TIME,         int64_t,                     1);
     INCLUDE(CAM_INTF_META_SENSOR_FRAME_DURATION,        int64_t,                     1);
+    INCLUDE(CAM_INTF_META_SENSOR_FRAME_DURATION_IMMEDIATE, int64_t,                  1);
     INCLUDE(CAM_INTF_META_SENSOR_SENSITIVITY,           int32_t,                     1);
+    INCLUDE(CAM_INTF_META_SENSOR_SENSITIVITY_IMMEDIATE, int32_t,                     1);
     INCLUDE(CAM_INTF_META_ISP_SENSITIVITY ,             int32_t,                     1);
     INCLUDE(CAM_INTF_META_SENSOR_TIMESTAMP,             int64_t,                     1);
     INCLUDE(CAM_INTF_META_SENSOR_ROLLING_SHUTTER_SKEW,  int64_t,                     1);
@@ -1042,6 +1045,7 @@ typedef struct {
     INCLUDE(CAM_INTF_PARM_EV_STEP,                      cam_rational_type_t,         1);
     INCLUDE(CAM_INTF_PARM_AEC_LOCK,                     uint32_t,                    1);
     INCLUDE(CAM_INTF_PARM_FPS_RANGE,                    cam_fps_range_t,             1);
+    INCLUDE(CAM_INTF_PARM_FPS_RANGE_IMMEDIATE,          cam_fps_range_t,             1);
     INCLUDE(CAM_INTF_PARM_AWB_LOCK,                     uint32_t,                    1);
     INCLUDE(CAM_INTF_PARM_BESTSHOT_MODE,                uint32_t,                    1);
     INCLUDE(CAM_INTF_PARM_DIS_ENABLE,                   int32_t,                     1);

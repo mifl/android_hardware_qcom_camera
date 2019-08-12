@@ -6508,18 +6508,6 @@ QCamera3HardwareInterface::translateFromHalMetadata(
         camMetadata.update(ANDROID_CONTROL_AE_EXPOSURE_COMPENSATION, expCompensation, 1);
     }
 
-    IF_META_AVAILABLE(uint32_t, sceneMode, CAM_INTF_PARM_BESTSHOT_MODE, metadata) {
-        int val = lookupFwkName(SCENE_MODES_MAP,
-                METADATA_MAP_SIZE(SCENE_MODES_MAP),
-                *sceneMode);
-        if (NAME_NOT_FOUND != val) {
-            uint8_t fwkSceneMode = (uint8_t)val;
-            camMetadata.update(ANDROID_CONTROL_SCENE_MODE, &fwkSceneMode, 1);
-            LOGD("urgent Metadata : ANDROID_CONTROL_SCENE_MODE: %d",
-                     fwkSceneMode);
-        }
-    }
-
     IF_META_AVAILABLE(uint32_t, ae_lock, CAM_INTF_PARM_AEC_LOCK, metadata) {
         uint8_t fwk_ae_lock = (uint8_t) *ae_lock;
         camMetadata.update(ANDROID_CONTROL_AE_LOCK, &fwk_ae_lock, 1);
@@ -6556,14 +6544,6 @@ QCamera3HardwareInterface::translateFromHalMetadata(
                 fwk_flashState = ANDROID_FLASH_STATE_UNAVAILABLE;
             }
             camMetadata.update(ANDROID_FLASH_STATE, &fwk_flashState, 1);
-        }
-    }
-
-    IF_META_AVAILABLE(uint32_t, flashMode, CAM_INTF_META_FLASH_MODE, metadata) {
-        int val = lookupFwkName(FLASH_MODES_MAP, METADATA_MAP_SIZE(FLASH_MODES_MAP), *flashMode);
-        if (NAME_NOT_FOUND != val) {
-            uint8_t fwk_flashMode = (uint8_t)val;
-            camMetadata.update(ANDROID_FLASH_MODE, &fwk_flashMode, 1);
         }
     }
 
@@ -6673,17 +6653,6 @@ QCamera3HardwareInterface::translateFromHalMetadata(
         camMetadata.update(ANDROID_SCALER_CROP_REGION, scalerCropRegion, 4);
     }
 
-    IF_META_AVAILABLE(int64_t, sensorExpTime, CAM_INTF_META_SENSOR_EXPOSURE_TIME, metadata) {
-        LOGD("sensorExpTime = %lld", *sensorExpTime);
-        camMetadata.update(ANDROID_SENSOR_EXPOSURE_TIME , sensorExpTime, 1);
-    }
-
-    IF_META_AVAILABLE(int64_t, sensorFameDuration,
-            CAM_INTF_META_SENSOR_FRAME_DURATION, metadata) {
-        LOGD("sensorFameDuration = %lld", *sensorFameDuration);
-        camMetadata.update(ANDROID_SENSOR_FRAME_DURATION, sensorFameDuration, 1);
-    }
-
     IF_META_AVAILABLE(int64_t, sensorRollingShutterSkew,
             CAM_INTF_META_SENSOR_ROLLING_SHUTTER_SKEW, metadata) {
         LOGD("sensorRollingShutterSkew = %lld", *sensorRollingShutterSkew);
@@ -6693,7 +6662,6 @@ QCamera3HardwareInterface::translateFromHalMetadata(
 
     IF_META_AVAILABLE(int32_t, sensorSensitivity, CAM_INTF_META_SENSOR_SENSITIVITY, metadata) {
         LOGD("sensorSensitivity = %d", *sensorSensitivity);
-        camMetadata.update(ANDROID_SENSOR_SENSITIVITY, sensorSensitivity, 1);
 
         //calculate the noise profile based on sensitivity
         double noise_profile_S = computeNoiseModelEntryS(*sensorSensitivity);
@@ -7714,7 +7682,7 @@ QCamera3HardwareInterface::translateCbUrgentMetadataToResultMetadata
     camera_metadata_t *resultMetadata;
 
     IF_META_AVAILABLE(int64_t, sensorExpTime, CAM_INTF_META_SENSOR_EXPOSURE_TIME, metadata) {
-        LOGD("sensorExpTime = %lld", *sensorExpTime);
+        LOGD("urgent Metadata : sensorExpTime = %lld", *sensorExpTime);
         camMetadata.update(ANDROID_SENSOR_EXPOSURE_TIME , sensorExpTime, 1);
     }
     IF_META_AVAILABLE(uint32_t, whiteBalanceState, CAM_INTF_META_AWB_STATE, metadata) {
@@ -7774,12 +7742,71 @@ QCamera3HardwareInterface::translateCbUrgentMetadataToResultMetadata
         }
     }
 
+    IF_META_AVAILABLE(int32_t, sensorSensitivityImmediate,
+            CAM_INTF_META_SENSOR_SENSITIVITY_IMMEDIATE, metadata) {
+        camMetadata.update(ANDROID_SENSOR_SENSITIVITY,
+            sensorSensitivityImmediate, 1);
+        LOGD("urgent Metadata : sensorSensitivity = %d",
+            *sensorSensitivityImmediate);
+    }
+
+    IF_META_AVAILABLE(uint32_t, flash_mode, CAM_INTF_META_FLASH_MODE_IMMEDIATE,
+            metadata) {
+        int val = lookupFwkName(FLASH_MODES_MAP,
+                METADATA_MAP_SIZE(FLASH_MODES_MAP), *flash_mode);
+        if (NAME_NOT_FOUND != val) {
+            uint8_t fwk_flashMode = (uint8_t) val;
+            camMetadata.update(ANDROID_FLASH_MODE, &fwk_flashMode, 1);
+            LOGD("urgent Metadata : ANDROID_FLASH_MODE: %d", fwk_flashMode);
+        }
+    }
+
+    IF_META_AVAILABLE(uint32_t, sceneMode, CAM_INTF_PARM_BESTSHOT_MODE,
+            metadata) {
+        int val = lookupFwkName(SCENE_MODES_MAP,
+                METADATA_MAP_SIZE(SCENE_MODES_MAP), *sceneMode);
+        if (NAME_NOT_FOUND != val) {
+            uint8_t fwkSceneMode = (uint8_t) val;
+            camMetadata.update(ANDROID_CONTROL_SCENE_MODE, &fwkSceneMode, 1);
+            LOGD("urgent Metadata : ANDROID_CONTROL_SCENE_MODE: %d",
+                    fwkSceneMode);
+        }
+    }
+
+    IF_META_AVAILABLE(cam_fps_range_t, float_range,
+            CAM_INTF_PARM_FPS_RANGE_IMMEDIATE, metadata) {
+        int32_t fps_range[2];
+        fps_range[0] = (int32_t)float_range->min_fps;
+        fps_range[1] = (int32_t)float_range->max_fps;
+        camMetadata.update(ANDROID_CONTROL_AE_TARGET_FPS_RANGE,
+                                      fps_range, 2);
+        LOGD("urgent Metadata : ANDROID_CONTROL_AE_TARGET_FPS_RANGE [%d, %d]",
+             fps_range[0], fps_range[1]);
+    }
+
+    IF_META_AVAILABLE(int64_t, sensorFameDuration,
+            CAM_INTF_META_SENSOR_FRAME_DURATION_IMMEDIATE, metadata) {
+        LOGD("urgent Metadata : sensorFameDuration = %lld", *sensorFameDuration);
+        camMetadata.update(ANDROID_SENSOR_FRAME_DURATION, sensorFameDuration, 1);
+    }
+
+    IF_META_AVAILABLE(uint32_t, faceDetectMode, CAM_INTF_META_STATS_FACEDETECT_MODE, metadata) {
+        int val = lookupFwkName(FACEDETECT_MODES_MAP, METADATA_MAP_SIZE(FACEDETECT_MODES_MAP),
+                *faceDetectMode);
+        if (NAME_NOT_FOUND != val) {
+            uint8_t fwk_faceDetectMode = (uint8_t)val;
+            camMetadata.update(ANDROID_STATISTICS_FACE_DETECT_MODE, &fwk_faceDetectMode, 1);
+            LOGD("urgent Metadata : faceDetectMode = %d", fwk_faceDetectMode);
+        }
+    }
+
     uint8_t fwk_aeMode = ANDROID_CONTROL_AE_MODE_OFF;
     uint32_t aeMode = CAM_AE_MODE_MAX;
     int32_t flashMode = CAM_FLASH_MODE_MAX;
     int32_t redeye = -1;
     IF_META_AVAILABLE(uint32_t, pAeMode, CAM_INTF_META_AEC_MODE, metadata) {
         aeMode = *pAeMode;
+        LOGD("urgent Metadata : aeMode = %d", aeMode);
     }
     IF_META_AVAILABLE(int32_t, pFlashMode, CAM_INTF_PARM_LED_MODE, metadata) {
         flashMode = *pFlashMode;
