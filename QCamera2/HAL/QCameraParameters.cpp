@@ -4212,6 +4212,12 @@ int32_t QCameraParameters::setQuadraCfa(const QCameraParameters& params)
         LOGI("Quadra CFA mode not selected");
         m_bQuadraCfa = FALSE;
     }
+
+    if (m_bRecordingHint_new && m_bQuadraCfa) {
+        LOGI("disable quadraCfa in recording mode");
+        m_bQuadraCfa = false;
+    }
+
     value = m_bQuadraCfa;
     if (prev_quadracfa == m_bQuadraCfa && !m_bZslMode) {
         LOGD("No change in Quadra CFA mode");
