@@ -4213,7 +4213,7 @@ int32_t QCameraParameters::setQuadraCfa(const QCameraParameters& params)
         m_bQuadraCfa = FALSE;
     }
     value = m_bQuadraCfa;
-    if (prev_quadracfa == m_bQuadraCfa) {
+    if (prev_quadracfa == m_bQuadraCfa && !m_bZslMode) {
         LOGD("No change in Quadra CFA mode");
     } else {
         if (m_bZslMode && m_bQuadraCfa) {
@@ -4787,11 +4787,6 @@ int32_t QCameraParameters::setZslMode(const QCameraParameters& params)
     const char *str_val  = params.get(KEY_QC_ZSL);
     const char *prev_val  = get(KEY_QC_ZSL);
     int32_t rc = NO_ERROR;
-
-    if (m_bQuadraCfa) {
-        LOGI("zsl is disabled as quadraCFA is required");
-        return rc;
-    }
 
     if(m_bForceZslMode) {
         if (!m_bZslMode) {
