@@ -4219,8 +4219,13 @@ int32_t QCameraParameters::setQuadraCfa(const QCameraParameters& params)
     }
 
     value = m_bQuadraCfa;
-    if (prev_quadracfa == m_bQuadraCfa && !m_bZslMode) {
-        LOGD("No change in Quadra CFA mode");
+    if (prev_quadracfa == m_bQuadraCfa) {
+        if (m_bZslMode && m_bQuadraCfa) {
+          m_bNeedRestart = TRUE;
+          setZslMode(FALSE);
+        } else {
+          LOGD("No change in Quadra CFA mode");
+        }
     } else {
         if (m_bZslMode && m_bQuadraCfa) {
             m_bNeedRestart = TRUE;
