@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2017, 2019, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -423,9 +423,9 @@ QCamera3HardwareInterface::QCamera3HardwareInterface(uint32_t cameraId,
     // Getting system props of different kinds
     char prop[PROPERTY_VALUE_MAX];
     memset(prop, 0, sizeof(prop));
-    property_get("persist.camera.raw.dump", prop, "0");
+    property_get("persist.vendor.camera.raw.dump", prop, "0");
     mEnableRawDump = atoi(prop);
-    property_get("persist.camera.hal3.force.hdr", prop, "0");
+    property_get("persist.vendor.camera.hal3.force.hdr", prop, "0");
     mForceHdrSnapshot = atoi(prop);
 
     if (mEnableRawDump)
@@ -435,15 +435,15 @@ QCamera3HardwareInterface::QCamera3HardwareInterface(uint32_t cameraId,
     memset(mLdafCalib, 0, sizeof(mLdafCalib));
 
     memset(prop, 0, sizeof(prop));
-    property_get("persist.camera.tnr.preview", prop, "0");
+    property_get("persist.vendor.camera.tnr.preview", prop, "0");
     m_bTnrPreview = (uint8_t)atoi(prop);
 
     memset(prop, 0, sizeof(prop));
-    property_get("persist.camera.tnr.video", prop, "0");
+    property_get("persist.vendor.camera.tnr.video", prop, "0");
     m_bTnrVideo = (uint8_t)atoi(prop);
 
     memset(prop, 0, sizeof(prop));
-    property_get("persist.camera.avtimer.debug", prop, "0");
+    property_get("persist.vendor.camera.avtimer.debug", prop, "0");
     m_debug_avtimer = (uint8_t)atoi(prop);
 
     //Load and read GPU library.
@@ -805,7 +805,7 @@ int QCamera3HardwareInterface::openCamera()
 
     // Setprop to decide the time source (whether boottime or monotonic).
     // By default, use monotonic time.
-    property_get("persist.camera.time.monotonic", value, "1");
+    property_get("persist.vendor.camera.time.monotonic", value, "1");
     mBootToMonoTimestampOffset = 0;
     if (atoi(value) == 1) {
         // if monotonic is set, then need to use time in monotonic.
@@ -1265,7 +1265,7 @@ void QCamera3HardwareInterface::addToPPFeatureMask(int stream_format,
     int property_len;
 
     /* Get feature mask from property */
-    property_len = property_get("persist.camera.hal3.feature",
+    property_len = property_get("persist.vendor.camera.hal3.feature",
             feature_mask_value, "0");
     if ((property_len > 2) && (feature_mask_value[0] == '0') &&
             (feature_mask_value[1] == 'x')) {
@@ -1556,7 +1556,7 @@ int QCamera3HardwareInterface::configureStreamsPerfLocked(
     /* EIS setprop control */
     char eis_prop[PROPERTY_VALUE_MAX];
     memset(eis_prop, 0, sizeof(eis_prop));
-    property_get("persist.camera.eis.enable", eis_prop, "1");
+    property_get("persist.vendor.camera.eis.enable", eis_prop, "1");
     eis_prop_set = (uint8_t)atoi(eis_prop);
 
     m_bEisEnable = eis_prop_set && (!oisSupported && m_bEisSupported) &&
@@ -2128,6 +2128,7 @@ int QCamera3HardwareInterface::configureStreamsPerfLocked(
                         if (!m_bIsVideo && (streamList->operation_mode ==
                                 CAMERA3_STREAM_CONFIGURATION_CONSTRAINED_HIGH_SPEED_MODE)) {
                             mDummyBatchStream = *newStream;
+                            mDummyBatchStream.usage |= GRALLOC_USAGE_HW_VIDEO_ENCODER;
                         }
                         channel = new QCamera3RegularChannel(mCameraHandle->camera_handle,
                                 mChannelHandle, mCameraHandle->ops, captureResultCb,
@@ -3184,7 +3185,7 @@ void QCamera3HardwareInterface::handleMetadataWithLock(
                     //Dump tuning metadata if enabled and available
                     char prop[PROPERTY_VALUE_MAX];
                     memset(prop, 0, sizeof(prop));
-                    property_get("persist.camera.dumpmetadata", prop, "0");
+                    property_get("persist.vendor.camera.dumpmetadata", prop, "0");
                     int32_t enabled = atoi(prop);
                     if (enabled && metadata->is_tuning_params_valid) {
                         dumpMetadataToFile(metadata->tuning_params,
@@ -4046,10 +4047,10 @@ int QCamera3HardwareInterface::processCaptureRequest(
         /* get eis information for stream configuration */
         cam_is_type_t isTypeVideo, isTypePreview, is_type=IS_TYPE_NONE;
         char is_type_value[PROPERTY_VALUE_MAX];
-        property_get("persist.camera.is_type", is_type_value, "4");
+        property_get("persist.vendor.camera.is_type", is_type_value, "4");
         isTypeVideo = static_cast<cam_is_type_t>(atoi(is_type_value));
         // Make default value for preview IS_TYPE as IS_TYPE_EIS_2_0
-        property_get("persist.camera.is_type_preview", is_type_value, "4");
+        property_get("persist.vendor.camera.is_type_preview", is_type_value, "4");
         isTypePreview = static_cast<cam_is_type_t>(atoi(is_type_value));
         LOGD("isTypeVideo: %d isTypePreview: %d", isTypeVideo, isTypePreview);
 
@@ -6282,9 +6283,6 @@ QCamera3HardwareInterface::translateFromHalMetadata(
          camMetadata.update(ANDROID_CONTROL_MODE, &fwk_mode, 1);
     }
 
-    /* Constant metadata values to be update*/
-    uint8_t hotPixelModeFast = ANDROID_HOT_PIXEL_MODE_FAST;
-    camMetadata.update(ANDROID_HOT_PIXEL_MODE, &hotPixelModeFast, 1);
 
     uint8_t hotPixelMapMode = ANDROID_STATISTICS_HOT_PIXEL_MAP_MODE_OFF;
     camMetadata.update(ANDROID_STATISTICS_HOT_PIXEL_MAP_MODE, &hotPixelMapMode, 1);
@@ -7592,7 +7590,7 @@ int QCamera3HardwareInterface::initStaticMetadata(uint32_t cameraId)
     char eis_prop[PROPERTY_VALUE_MAX];
     bool eisSupported = false;
     memset(eis_prop, 0, sizeof(eis_prop));
-    property_get("persist.camera.eis.enable", eis_prop, "1");
+    property_get("persist.vendor.camera.eis.enable", eis_prop, "1");
     uint8_t eis_prop_set = (uint8_t)atoi(eis_prop);
     count = IS_TYPE_MAX;
     count = MIN(gCamCapability[cameraId]->supported_is_types_cnt, count);
@@ -7628,7 +7626,7 @@ int QCamera3HardwareInterface::initStaticMetadata(uint32_t cameraId)
 
     /* 0: OFF, 1: OFF+SIMPLE, 2: OFF+FULL, 3: OFF+SIMPLE+FULL */
     memset(prop, 0, sizeof(prop));
-    property_get("persist.camera.facedetect", prop, "1");
+    property_get("persist.vendor.camera.facedetect", prop, "1");
     uint8_t supportedFaceDetectMode = (uint8_t)atoi(prop);
     LOGD("Support face detection mode: %d",
              supportedFaceDetectMode);
@@ -7831,7 +7829,7 @@ int QCamera3HardwareInterface::initStaticMetadata(uint32_t cameraId)
     }
     //Advertise HFR capability only if the property is set
     memset(prop, 0, sizeof(prop));
-    property_get("persist.camera.hal3hfr.enable", prop, "1");
+    property_get("persist.vendor.camera.hal3hfr.enable", prop, "1");
     uint8_t hfrEnable = (uint8_t)atoi(prop);
 
     if(hfrEnable && available_hfr_configs.array()) {
@@ -8843,13 +8841,13 @@ camera_metadata_t* QCamera3HardwareInterface::translateCapabilityToMetadata(int 
     /* OIS disable */
     char ois_prop[PROPERTY_VALUE_MAX];
     memset(ois_prop, 0, sizeof(ois_prop));
-    property_get("persist.camera.ois.disable", ois_prop, "0");
+    property_get("persist.vendor.camera.ois.disable", ois_prop, "0");
     uint8_t ois_disable = (uint8_t)atoi(ois_prop);
 
     /* Force video to use OIS */
     char videoOisProp[PROPERTY_VALUE_MAX];
     memset(videoOisProp, 0, sizeof(videoOisProp));
-    property_get("persist.camera.ois.video", videoOisProp, "1");
+    property_get("persist.vendor.camera.ois.video", videoOisProp, "1");
     uint8_t forceVideoOis = (uint8_t)atoi(videoOisProp);
     uint8_t controlIntent = 0;
     uint8_t focusMode;
@@ -8859,6 +8857,9 @@ camera_metadata_t* QCamera3HardwareInterface::translateCapabilityToMetadata(int 
     uint8_t edge_mode;
     uint8_t noise_red_mode;
     uint8_t tonemap_mode;
+    uint8_t hotpixelMode = ANDROID_HOT_PIXEL_MODE_FAST;
+    uint8_t shadingmode = ANDROID_SHADING_MODE_FAST;
+    uint8_t shadingmap_mode = ANDROID_STATISTICS_LENS_SHADING_MAP_MODE_OFF;
     bool highQualityModeEntryAvailable = FALSE;
     bool fastModeEntryAvailable = FALSE;
     vsMode = ANDROID_CONTROL_VIDEO_STABILIZATION_MODE_OFF;
@@ -8880,6 +8881,11 @@ camera_metadata_t* QCamera3HardwareInterface::translateCapabilityToMetadata(int 
         edge_mode = ANDROID_EDGE_MODE_HIGH_QUALITY;
         noise_red_mode = ANDROID_NOISE_REDUCTION_MODE_HIGH_QUALITY;
         tonemap_mode = ANDROID_TONEMAP_MODE_HIGH_QUALITY;
+        hotpixelMode = ANDROID_HOT_PIXEL_MODE_HIGH_QUALITY;
+        shadingmode = ANDROID_SHADING_MODE_HIGH_QUALITY;
+        if (CAM_SENSOR_RAW == gCamCapability[mCameraId]->sensor_type.sens_type) {
+            shadingmap_mode = ANDROID_STATISTICS_LENS_SHADING_MAP_MODE_ON;
+        }
         cacMode = ANDROID_COLOR_CORRECTION_ABERRATION_MODE_OFF;
         // Order of priority for default CAC is HIGH Quality -> FAST -> OFF
         for (size_t i = 0; i < gCamCapability[mCameraId]->aberration_modes_count; i++) {
@@ -9021,8 +9027,8 @@ camera_metadata_t* QCamera3HardwareInterface::translateCapabilityToMetadata(int 
     static const uint8_t demosaicMode = ANDROID_DEMOSAIC_MODE_FAST;
     settings.update(ANDROID_DEMOSAIC_MODE, &demosaicMode, 1);
 
-    static const uint8_t hotpixelMode = ANDROID_HOT_PIXEL_MODE_FAST;
     settings.update(ANDROID_HOT_PIXEL_MODE, &hotpixelMode, 1);
+    settings.update(ANDROID_SHADING_MODE, &shadingmode, 1);
 
     static const int32_t testpatternMode = ANDROID_SENSOR_TEST_PATTERN_MODE_OFF;
     settings.update(ANDROID_SENSOR_TEST_PATTERN_MODE, &testpatternMode, 1);
@@ -9147,11 +9153,6 @@ camera_metadata_t* QCamera3HardwareInterface::translateCapabilityToMetadata(int 
     uint8_t blacklevel_lock = ANDROID_BLACK_LEVEL_LOCK_OFF;
     settings.update(ANDROID_BLACK_LEVEL_LOCK, &blacklevel_lock, 1);
 
-    /* lens shading map mode */
-    uint8_t shadingmap_mode = ANDROID_STATISTICS_LENS_SHADING_MAP_MODE_OFF;
-    if (CAM_SENSOR_RAW == gCamCapability[mCameraId]->sensor_type.sens_type) {
-        shadingmap_mode = ANDROID_STATISTICS_LENS_SHADING_MAP_MODE_ON;
-    }
     settings.update(ANDROID_STATISTICS_LENS_SHADING_MAP_MODE, &shadingmap_mode, 1);
 
     //special defaults for manual template
@@ -9216,7 +9217,7 @@ camera_metadata_t* QCamera3HardwareInterface::translateCapabilityToMetadata(int 
     /* CDS default */
     char prop[PROPERTY_VALUE_MAX];
     memset(prop, 0, sizeof(prop));
-    property_get("persist.camera.CDS", prop, "Auto");
+    property_get("persist.vendor.camera.CDS", prop, "Auto");
     cam_cds_mode_type_t cds_mode = CAM_CDS_MODE_AUTO;
     cds_mode = lookupProp(CDS_MAP, METADATA_MAP_SIZE(CDS_MAP), prop);
     if (CAM_CDS_MODE_MAX == cds_mode) {
@@ -10863,7 +10864,7 @@ cam_denoise_process_type_t QCamera3HardwareInterface::getWaveletDenoiseProcessPl
 {
     char prop[PROPERTY_VALUE_MAX];
     memset(prop, 0, sizeof(prop));
-    property_get("persist.denoise.process.plates", prop, "0");
+    property_get("persist.vendor.denoise.process.plates", prop, "0");
     int processPlate = atoi(prop);
     switch(processPlate) {
     case 0:
@@ -10893,7 +10894,7 @@ cam_denoise_process_type_t QCamera3HardwareInterface::getTemporalDenoiseProcessP
 {
     char prop[PROPERTY_VALUE_MAX];
     memset(prop, 0, sizeof(prop));
-    property_get("persist.tnr.process.plates", prop, "0");
+    property_get("persist.vendor.tnr.process.plates", prop, "0");
     int processPlate = atoi(prop);
     switch(processPlate) {
     case 0:
@@ -11154,7 +11155,7 @@ uint8_t QCamera3HardwareInterface::getMobicatMask()
 int32_t QCamera3HardwareInterface::setMobicat()
 {
     char value [PROPERTY_VALUE_MAX];
-    property_get("persist.camera.mobicat", value, "0");
+    property_get("persist.vendor.camera.mobicat", value, "0");
     int32_t ret = NO_ERROR;
     uint8_t enableMobi = (uint8_t)atoi(value);
 
@@ -11192,16 +11193,16 @@ void QCamera3HardwareInterface::getLogLevel()
     char prop[PROPERTY_VALUE_MAX];
     uint32_t globalLogLevel = 0;
 
-    property_get("persist.camera.hal.debug", prop, "0");
+    property_get("persist.vendor.camera.hal.debug", prop, "0");
     int val = atoi(prop);
     if (0 <= val) {
         gCamHal3LogLevel = (uint32_t)val;
     }
 
-    property_get("persist.camera.kpi.debug", prop, "1");
+    property_get("persist.vendor.camera.kpi.debug", prop, "1");
     gKpiDebugLevel = atoi(prop);
 
-    property_get("persist.camera.global.debug", prop, "0");
+    property_get("persist.vendor.camera.global.debug", prop, "0");
     val = atoi(prop);
     if (0 <= val) {
         globalLogLevel = (uint32_t)val;
