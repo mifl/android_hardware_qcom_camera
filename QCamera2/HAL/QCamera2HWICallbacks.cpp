@@ -683,7 +683,7 @@ void QCamera2HardwareInterface::postproc_channel_cb_routine(mm_camera_super_buf_
     *frame = *recvd_frame;
 
     if (recvd_frame->num_bufs > 0) {
-        LOGI("[KPI Perf]: frame_idx %d", recvd_frame->bufs[0]->frame_idx);
+        LOGI("[KPI Perf]: camera id %d frame_idx %d", pme->getCameraId(), recvd_frame->bufs[0]->frame_idx);
     }
     // Wait on JPEG create session
     pme->waitDeferredWork(pme->mJpegJob);
@@ -742,7 +742,7 @@ void QCamera2HardwareInterface::synchronous_stream_cb_routine(
     }
 
     if(pme->m_bPreviewStarted) {
-        LOGI("[KPI Perf] : PROFILE_FIRST_PREVIEW_FRAME");
+        LOGI("[KPI Perf] : PROFILE_FIRST_PREVIEW_FRAME camera id %d", ((QCamera2HardwareInterface *)userdata)->getCameraId());
 
         pme->m_perfLockMgr.releasePerfLock(PERF_LOCK_START_PREVIEW);
         pme->m_perfLockMgr.releasePerfLock(PERF_LOCK_OPEN_CAMERA);
@@ -877,7 +877,7 @@ void QCamera2HardwareInterface::preview_stream_cb_routine(mm_camera_super_buf_t 
     uint32_t idx = frame->buf_idx;
 
     if(pme->m_bPreviewStarted) {
-        LOGI("[KPI Perf] : PROFILE_FIRST_PREVIEW_FRAME");
+        LOGI("[KPI Perf] : PROFILE_FIRST_PREVIEW_FRAME camera id %d", ((QCamera2HardwareInterface *)userdata)->getCameraId());
 
         pme->m_perfLockMgr.releasePerfLock(PERF_LOCK_START_PREVIEW);
         pme->m_perfLockMgr.releasePerfLock(PERF_LOCK_OPEN_CAMERA);
@@ -1628,7 +1628,7 @@ void QCamera2HardwareInterface::video_stream_cb_routine(mm_camera_super_buf_t *s
         pme->debugShowVideoFPS();
     }
     if(pme->m_bRecordStarted) {
-       LOGI("[KPI Perf] : PROFILE_FIRST_RECORD_FRAME");
+       LOGI("[KPI Perf] : PROFILE_FIRST_RECORD_FRAME camera id %d", ((QCamera2HardwareInterface *)userdata)->getCameraId());
        pme->m_bRecordStarted = false ;
     }
     LOGD("Stream(%d), Timestamp: %ld %ld",

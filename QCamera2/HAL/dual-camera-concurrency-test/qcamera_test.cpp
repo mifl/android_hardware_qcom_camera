@@ -1704,21 +1704,13 @@ status_t CameraContext::startPreview()
         mResizePreview = false;
     }
 
-    if ( !mPreviewRunning ) {
-        ret |= mCamera->startPreview();
-        if ( NO_ERROR != ret ) {
-            printf("Preview start failed! \n");
-            return ret;
-        }
-
-        mPreviewRunning = true;
-    }
-
     if(mRecordingHint){
         mParams.set(CameraContext::KEY_ZSL, "off");
         mParams.set("dis", "enable");
         mCamera->setParameters(mParams.flatten());
         mParams.set("video-stabilization", "true");
+        mParams.setPictureSize(
+            currentVideoSize.width, currentVideoSize.height);
         mCamera->setParameters(mParams.flatten());
     }else{
         if(mInterpr->mIsZSLOn == true){
@@ -1727,6 +1719,16 @@ status_t CameraContext::startPreview()
             mParams.set(CameraContext::KEY_ZSL, "off");
         }
         mCamera->setParameters(mParams.flatten());
+    }
+
+    if ( !mPreviewRunning ) {
+        ret |= mCamera->startPreview();
+        if ( NO_ERROR != ret ) {
+            printf("Preview start failed! \n");
+            return ret;
+        }
+
+        mPreviewRunning = true;
     }
 
     signalFinished();
