@@ -392,7 +392,7 @@ int QCamera2HardwareInterface::start_preview(struct camera_device *device)
         ret = apiResult.status;
     }
     hw->unlockAPI();
-    LOGI("[KPI Perf]: X ret = %d", ret);
+    LOGI("[KPI Perf]: X camera id %d ret = %d", hw->getCameraId(), ret);
     ATRACE_INT("[KPI Perf] X PROFILE_START_PREVIEW",1);
     return ret;
 }
@@ -433,7 +433,7 @@ void QCamera2HardwareInterface::stop_preview(struct camera_device *device)
     }
     hw->unlockAPI();
     hw->m_perfLockMgr.releasePerfLock(PERF_LOCK_STOP_PREVIEW);
-    LOGI("[KPI Perf]: X ret = %d", ret);
+    LOGI("[KPI Perf]: X camera id %d ret = %d", hw->getCameraId(), ret);
     ATRACE_INT("[KPI Perf] X PROFILE_STOP_PREVIEW",1);
 }
 
@@ -689,7 +689,7 @@ int QCamera2HardwareInterface::start_recording(struct camera_device *device)
     }
     hw->unlockAPI();
     hw->m_bRecordStarted = true;
-    LOGI("[KPI Perf]: X ret = %d", ret);
+    LOGI("[KPI Perf]: X camera id %d ret = %d", hw->getCameraId(), ret);
 
     return ret;
 }
@@ -727,7 +727,7 @@ void QCamera2HardwareInterface::stop_recording(struct camera_device *device)
         hw->waitAPIResult(QCAMERA_SM_EVT_STOP_RECORDING, &apiResult);
     }
     hw->unlockAPI();
-    LOGI("[KPI Perf]: X ret = %d", ret);
+    LOGI("[KPI Perf]: X camera id %d ret = %d", hw->getCameraId(), ret);
     ATRACE_INT("[KPI Perf] X PROFILE_STOP_RECORDING",1);
 }
 
@@ -1040,7 +1040,7 @@ int QCamera2HardwareInterface::take_picture(struct camera_device *device)
          }
     }
     hw->m_bPreparingHardware = false;
-    LOGI("[KPI Perf]: X ret = %d", ret);
+    LOGI("[KPI Perf]: X camera id %d ret = %d", hw->getCameraId(), ret);
     ATRACE_INT("[KPI Perf] X PROFILE_TAKE_PICTURE",1);
     return ret;
 }
@@ -1558,7 +1558,7 @@ int QCamera2HardwareInterface::close_camera_device(hw_device_t *hw_dev)
     hal_debug_dump_memleak_trace();
     }
 #endif
-    LOGI("[KPI Perf]: X");
+    LOGI("[KPI Perf]: X camera id %d", hw->getCameraId());
     ATRACE_INT("[KPI Perf] X close_camera_device",1);
     KPI_ATRACE_CAMSCOPE_END(CAMSCOPE_HAL1_CLOSECAMERA);
     CAMSCOPE_DESTROY(CAMSCOPE_SECTION_HAL);
@@ -4013,7 +4013,7 @@ int QCamera2HardwareInterface::startPreview()
     int32_t rc = NO_ERROR;
 
     LOGI("E ZSL = %d Recording Hint = %d camera_id %d\n", mParameters.isZSLMode(),
-            mParameters.getRecordingHintValue(),getCameraId());
+            mParameters.getRecordingHintValue(), getCameraId());
 
     m_perfLockMgr.acquirePerfLockIfExpired(PERF_LOCK_START_PREVIEW);
 
@@ -4088,7 +4088,7 @@ int QCamera2HardwareInterface::startPreview()
     //configure snapshot skip for dual camera usecases
     configureSnapshotSkip(true);
 
-    LOGI("X rc = %d", rc);
+    LOGI("X camera_id %d rc = %d", getCameraId(), rc);
     return rc;
 }
 
@@ -4113,7 +4113,7 @@ int32_t QCamera2HardwareInterface::updatePostPreviewParameters() {
 int QCamera2HardwareInterface::stopPreview()
 {
     KPI_ATRACE_CAMSCOPE_CALL(CAMSCOPE_HAL1_STOPPREVIEW);
-    LOGI("E");
+    LOGI("E camera id %d", getCameraId());
     mNumPreviewFaces = -1;
     mActiveAF = false;
 
@@ -4149,7 +4149,7 @@ int QCamera2HardwareInterface::stopPreview()
 #endif //Use_DISPLAY_SERVICE
 
     m_perfLockMgr.releasePerfLock(PERF_LOCK_STOP_PREVIEW);
-    LOGI("X");
+    LOGI("X camera id %d", getCameraId());
     return NO_ERROR;
 }
 
@@ -4228,7 +4228,7 @@ int QCamera2HardwareInterface::startRecording()
 {
     int32_t rc = NO_ERROR;
     bool bCachedMem = QCAMERA_ION_USE_CACHE;
-    LOGI("E");
+    LOGI("E camera id %d", getCameraId());
 
     m_perfLockMgr.acquirePerfLockIfExpired(PERF_LOCK_START_RECORDING);
 
@@ -4352,7 +4352,7 @@ int QCamera2HardwareInterface::startRecording()
         m_perfLockMgr.acquirePerfLock(PERF_LOCK_POWERHINT_ENCODE, 0);
     }
 
-    LOGI("X rc = %d", rc);
+    LOGI("X camera id %d rc = %d", getCameraId(), rc);
     return rc;
 }
 
@@ -4369,7 +4369,7 @@ int QCamera2HardwareInterface::startRecording()
  *==========================================================================*/
 int QCamera2HardwareInterface::stopRecording()
 {
-    LOGI("E");
+    LOGI("E camera id %d", getCameraId());
 
     // Disable power hint for video encoding
     m_perfLockMgr.releasePerfLock(PERF_LOCK_POWERHINT_ENCODE);
@@ -4390,7 +4390,7 @@ int QCamera2HardwareInterface::stopRecording()
         m_bNeedVideoCb = false;
     }
 
-    LOGI("X rc = %d", rc);
+    LOGI("X camera id %d rc = %d", getCameraId(), rc);
     return rc;
 }
 
@@ -5529,7 +5529,7 @@ int QCamera2HardwareInterface::takePicture()
 
     //When take picture, stop sending preview callbacks to APP
     m_stateMachine.setPreviewCallbackNeeded(false);
-    LOGI("X rc = %d", rc);
+    LOGI("X camera id %d rc = %d", getCameraId(), rc);
     return rc;
 }
 
@@ -9395,7 +9395,7 @@ int32_t QCamera2HardwareInterface::preparePreview()
     ATRACE_CAMSCOPE_CALL(CAMSCOPE_HAL1_PREPAREPREVIEW);
     int32_t rc = NO_ERROR;
 
-    LOGI("E");
+    LOGI("E camera id %d", getCameraId());
     rc = mParameters.setStreamConfigure(false, false, false);
     if (rc != NO_ERROR) {
         LOGE("setStreamConfigure failed %d", rc);
@@ -9512,7 +9512,7 @@ int32_t QCamera2HardwareInterface::preparePreview()
         }
     }
 
-    LOGI("X rc = %d", rc);
+    LOGI("X camera id %d rc = %d", getCameraId(), rc);
     return rc;
 }
 
