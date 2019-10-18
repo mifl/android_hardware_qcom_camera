@@ -4730,6 +4730,7 @@ int QCamera3HardwareInterface::processCaptureRequest(
         //it could either be 4 or 5 depending on the stream and video size
         for (uint32_t i = 0; i < mStreamConfigInfo.num_streams; i++) {
             if (setEis) {
+                mStreamConfigInfo.dewarp_type[i] = DEWARP_NONE;
                 if (mStreamConfigInfo.type[i] == CAM_STREAM_TYPE_PREVIEW) {
                     is_type = isTypePreview;
                 } else if (mStreamConfigInfo.type[i] == CAM_STREAM_TYPE_VIDEO ) {
@@ -4739,6 +4740,7 @@ int QCamera3HardwareInterface::processCaptureRequest(
                     } else if (isTypeVideo == IS_TYPE_EIS_DG) {
                         LOGD(" EIS type is set to EIS_DG");
                         is_type = IS_TYPE_EIS_DG;
+                        mStreamConfigInfo.dewarp_type[i] = (cam_dewarp_type_t)fwkDeWarpType;
                     }
                     else {
                         is_type = isTypeVideo;
@@ -4747,7 +4749,6 @@ int QCamera3HardwareInterface::processCaptureRequest(
                     is_type = IS_TYPE_NONE;
                 }
                 mStreamConfigInfo.is_type[i] = is_type;
-                mStreamConfigInfo.dewarp_type[i] = (cam_dewarp_type_t)fwkDeWarpType;
                 LOGD("stream type %d pp_mask: 0x%" PRIx64, mStreamConfigInfo.type[i], mStreamConfigInfo.postprocess_mask[i]);
                 if (mStreamConfigInfo.type[i] == CAM_STREAM_TYPE_SNAPSHOT && isTypeVideo >= IS_TYPE_EIS_2_0)
                     mStreamConfigInfo.postprocess_mask[i] &= ~CAM_QCOM_FEATURE_PAAF;
