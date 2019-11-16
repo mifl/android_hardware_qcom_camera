@@ -419,6 +419,27 @@ int32_t QCamera3Channel::setBundleInfo(const cam_bundle_config_t &bundleInfo, ui
 }
 
 /*===========================================================================
+ * FUNCTION   : getStreamSize
+ *
+ * DESCRIPTION: get the size from the camera3_stream_t for the channel
+ *
+ * PARAMETERS :
+ *   @dim     : Return the size of the stream
+ *
+ * RETURN     : int32_t type of status
+ *              NO_ERROR  -- success
+ *              none-zero failure code
+ *==========================================================================*/
+int32_t QCamera3Channel::getStreamSize(cam_dimension_t &dim)
+{
+    if (mStreams[0]) {
+        return mStreams[0]->getFrameDimension(dim);
+    } else {
+        return BAD_VALUE;
+    }
+}
+
+/*===========================================================================
  * FUNCTION   : getStreamTypeMask
  *
  * DESCRIPTION: Get bit mask of all stream types in this channel
@@ -915,6 +936,27 @@ QCamera3ProcessingChannel::~QCamera3ProcessingChannel()
 
     mReqFrameNumList.clear();
     mAllocDone = FALSE;
+}
+
+/*===========================================================================
+ * FUNCTION   : cancelFramePProc
+ *
+ * DESCRIPTION: cancel FramePost Processing request.
+ *
+ * PARAMETERS :
+ *   @frame   : frame number for which postproc request need to be cancel.
+ *
+ * RETURN     : int32_t type of status
+ *              NO_ERROR  -- success
+ *              none-zero failure code
+ *
+ *==========================================================================*/
+int32_t QCamera3ProcessingChannel::cancelFramePProc(uint32_t framenum,
+                                                              __unused cam_sync_type_t cam)
+{
+    int rc = NO_ERROR;
+    rc = m_postprocessor.cancelFramePProc(framenum);
+    return rc;
 }
 
 /*===========================================================================
@@ -3643,7 +3685,7 @@ QCamera3YUVChannel::QCamera3YUVChannel(uint32_t cam_handle,
     QCamera3HardwareInterface* hal_obj = (QCamera3HardwareInterface*)mUserData;
     m_bCtrlAux = !appConfigAux;
     if (is_dual_camera_by_handle(cam_handle)
-        && (hal_obj->isPPMaskSetForScaling(postprocess_mask))
+        && !(hal_obj->isPPMaskSetForScaling(postprocess_mask))
         && hal_obj->isAsymetricDim(dim)
         && !appConfigAux) {
         m_camHandle = get_main_camera_handle(cam_handle);
@@ -3655,6 +3697,7 @@ QCamera3YUVChannel::QCamera3YUVChannel(uint32_t cam_handle,
                     stream, stream_type,
                     postprocess_mask,
                     metadataChannel);
+
         setDualChannelMode(true);
     }
 
@@ -4114,7 +4157,11 @@ int32_t QCamera3YUVChannel::request(buffer_handle_t *buffer,
             }
                 indexUsed = CAM_FREERUN_IDX;
         } else {
-            LOGD("offlinePpFlag %d and mbypass is %d", ppInfo.offlinePpFlag, mBypass);
+            cam_dimension_t dim;
+            memset(&dim, 0, sizeof(dim));
+            mStreams[0]->getFrameDimension(dim);
+            LOGD("offlinePpFlag %d and mbypass is %d, dim %dx%d",
+                 ppInfo.offlinePpFlag, mBypass, dim.width,dim.height);
             needMetadata = ppInfo.offlinePpFlag;
             if (!ppInfo.offlinePpFlag) {
                 // regular request
@@ -4207,6 +4254,15 @@ int QCamera3YUVChannel::allocateZSLBuffers()
     }
     LOGH(": X");
     return rc;
+}
+
+uint32_t QCamera3YUVChannel::getStreamTypeMask()
+{
+    if(mStreams[0])
+    {
+        return QCamera3Channel::getStreamTypeMask();
+    }
+    return (1U << mStreamType);
 }
 
 void QCamera3YUVChannel::switchMaster(uint32_t masterCam)
@@ -4606,6 +4662,30 @@ bool QCamera3YUVChannel::getNextPendingCbBuffer() {
         }
     }
     return returned;
+}
+
+/*===========================================================================
+ * FUNCTION   : cancelFramePProc
+ *
+ * DESCRIPTION: cancel FramePost Processing request.
+ *
+ * PARAMETERS :
+ *   @frame   : frame number for which postproc request need to be cancel.
+ *
+ * RETURN     : int32_t type of status
+ *              NO_ERROR  -- success
+ *              none-zero failure code
+ *
+ *==========================================================================*/
+int32_t QCamera3YUVChannel::cancelFramePProc(uint32_t framenum,
+                                                          __unused cam_sync_type_t cam)
+{
+    int rc = NO_ERROR;
+     rc = QCamera3ProcessingChannel::cancelFramePProc(framenum);
+    if(mAuxYUVChannel != NULL){
+        return mAuxYUVChannel->cancelFramePProc(framenum);
+    }
+    return rc;
 }
 
 /*===========================================================================
@@ -5720,6 +5800,10 @@ int32_t QCamera3PicChannel::stopChannel()
 
     if(!m_bStarted) {
        LOGD("Attempt to stop inactive channel");
+       if(mAuxPicChannel)
+       {
+           return mAuxPicChannel->stopChannel();
+       }
        return rc;
     }
 
@@ -5729,6 +5813,11 @@ int32_t QCamera3PicChannel::stopChannel()
     if(rc == NO_ERROR){
        m_bStarted = false;
     }
+
+    if(mAuxPicChannel){
+        mAuxPicChannel->stopChannel();
+    }
+
     return rc;
 }
 
@@ -5744,10 +5833,21 @@ int32_t QCamera3PicChannel::startChannel()
     if (!mLiveShot) return NO_ERROR;
     LOGD("QCamera3PicChannel::startChannel");
 
+    QCamera3HardwareInterface *hal_obj= (QCamera3HardwareInterface *)mUserData;
+    if(m_bDualChannel)
+    {
+      bool isMaster = mAuxPicChannel ?
+            (mMasterCam == CAM_TYPE_MAIN): (mMasterCam == CAM_TYPE_AUX);
+      if(mAuxPicChannel && (!isMaster || hal_obj->needHALPP())){
+          mAuxPicChannel->startChannel();
+      }
+    }
+
     rc =  m_camOps->start_channel(m_camHandle, m_handle);
     if(rc == NO_ERROR){
        m_bStarted = true;
     }
+
     return rc;
 }
 
@@ -5885,6 +5985,30 @@ void QCamera3PicChannel::stopPostProc()
         m_postprocessor.stop();
         mPostProcStarted = false;
     }
+}
+
+/*===========================================================================
+ * FUNCTION   : cancelFramePProc
+ *
+ * DESCRIPTION: cancel FramePost Processing request.
+ *
+ * PARAMETERS :
+ *   @frame   : frame number for which postproc request need to be cancel.
+ *
+ * RETURN     : int32_t type of status
+ *              NO_ERROR  -- success
+ *              none-zero failure code
+ *
+ *==========================================================================*/
+int32_t QCamera3PicChannel::cancelFramePProc(uint32_t framenum,
+                                                              cam_sync_type_t cam)
+{
+    int rc = NO_ERROR;
+    if(mAuxPicChannel != NULL){
+        return mAuxPicChannel->cancelFramePProc(framenum,cam);
+    }
+    rc = QCamera3ProcessingChannel::cancelFramePProc(framenum);
+    return rc;
 }
 
 /*===========================================================================
@@ -6447,7 +6571,7 @@ int QCamera3PicChannel::allocateZSLBuffers()
     LOGH(": E numbufs %d", mCamera3Stream->max_buffers);
     int rc = NO_ERROR;
     uint32_t bufIdx;
-    if (m_bZSL) {
+    if (m_bZSL && (mYuvMemory != NULL)) {
         for (size_t i = 0; i < mCamera3Stream->max_buffers; i++) {
             rc = mYuvMemory->allocateOne(mFrameLen);
             if (rc < 0) {
@@ -7179,6 +7303,21 @@ int32_t QCamera3ReprocessChannel::registerBuffer(buffer_handle_t *buffer,
         return rc;
     }
 
+    return rc;
+}
+
+int QCamera3ReprocessChannel::releaseOutputBuffer(buffer_handle_t * output_buffer,
+                                                            uint32_t frame_number)
+{
+    int rc = NO_ERROR;
+    QCamera3ProcessingChannel *obj = (QCamera3ProcessingChannel *)inputChHandle;
+    if(mReprocessType == REPROCESS_TYPE_YUV)
+    {
+        obj->reprocessCbRoutine(output_buffer, frame_number);
+    }else if(mReprocessType == REPROCESS_TYPE_JPEG) {
+        QCamera3PicChannel *pic_channel = (QCamera3PicChannel *)obj;
+        pic_channel->returnBufferError(frame_number);
+    }
     return rc;
 }
 
