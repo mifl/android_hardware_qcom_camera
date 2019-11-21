@@ -72,8 +72,8 @@
 #define CAM_BACK_RAW_PREVIEW_HEIGHT 1944
 
 #define LIB_PATH "/system/lib/hw/camera.sdm660.so"
-#define DUMP_CNT 35
-#define DEFAULT_RUN_TIME_SEC 150
+#define DUMP_CNT 10000 //35
+#define DEFAULT_RUN_TIME_SEC 1000 //150
 #define POST_TIMEOUT 3
 
 #define MIPI_RAW8 1
@@ -124,7 +124,8 @@ enum test_mode_t
 {
     YUV_ONLY = 0,
     RAW_ONLY,
-    RAW_YUV,
+    RAW_YUV,   //normal yuv stream + raw stream
+    RAW_YUV2,  //callback yuv stream + raw stream
     RUN_MODE_MAX,
 };
 
@@ -136,6 +137,7 @@ struct test_config_t
     bool dump_frame;
     int dump_num;
     int run_time;
+    int run_stream;
 };
 
 typedef enum {

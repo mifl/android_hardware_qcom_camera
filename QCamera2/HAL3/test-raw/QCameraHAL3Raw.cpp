@@ -35,21 +35,22 @@ using namespace std;
 
 unsigned char g_is_running = 0;
 
+#define DEFAULT_STREAM_NUM 4
 int num_streams = 0;
 camera_size_t g_size[CAM_MAX][STREAM_MAX] = {
-//rear
+    //rear
     {
         {2592, 1944, CAM_MIPI_RAW8}, //reserve for raw data
         {1280, 960, CAM_YUV_NV12},
         {640, 480, CAM_YUV_NV12},
         {2592, 1944, CAM_YUV_NV12},
     },
-//front
+    //front
     {
         {4208, 3120, CAM_MIPI_RAW10}, //reserve for raw data
         {1920, 1080, CAM_YUV_NV12},
-        {1280, 720, CAM_YUV_NV12},
         {1280, 960, CAM_YUV_NV12},
+        {1280, 720, CAM_YUV_NV12},
     },
 };
 
@@ -69,12 +70,15 @@ camera3_stream_configuration stream_config;
 
 int mIonFd;
 int bufCnt[STREAM_MAX];
+int minAvaiablebufCnt[STREAM_MAX];
 int stream_buffer_allocated[STREAM_MAX];
 
 native_handle_t  **stream_handle[STREAM_MAX];
 camera_meminfo_t **stream_meminfo[STREAM_MAX];
 camera_meminfo_t **stream_rawmeminfo[STREAM_MAX];
 
+#define TS_MAX 50
+uint64_t ts_shutter[TS_MAX];
 
 static void camera_device_status_change(const struct camera_module_callbacks
                     *callbacks, int camera_id,
@@ -97,6 +101,14 @@ static void notify(
   int id = 0;
   int frame_number =  msg->message.error.frame_number;
   CDBG_LOW("%p type %d", cb, msg->type);
+
+  uint64_t cur_timestamp;
+  struct timespec    ts;
+  static uint64_t last_shutter_timestamp = 0;
+  if( clock_gettime(CLOCK_MONOTONIC, &ts) < 0) {
+      CDBG_ERROR("Error reading the monotonic time clock, cannot use timed wait");
+  }
+  cur_timestamp = (uint64_t)ts.tv_sec * 1000000000 + (uint64_t)ts.tv_nsec;
 
   switch(msg->type)
   {
@@ -127,7 +139,12 @@ static void notify(
         break;
 
     case CAMERA3_MSG_SHUTTER:
-        CDBG_LOW("CAMERA%d_MSG_SHUTTER\n", id);
+        CDBG_ERROR("CAMERA%d_MSG_SHUTTER, cur_timestamp %lld. frame id %d timestamp %lld. delta(cur): %d ms, delta(prv): %d ms\n",
+            id, cur_timestamp, msg->message.shutter.frame_number, msg->message.shutter.timestamp,
+            (int)(cur_timestamp - msg->message.shutter.timestamp)/1000000,
+            (int)(msg->message.shutter.timestamp - last_shutter_timestamp)/1000000 );
+        ts_shutter[msg->message.shutter.frame_number % TS_MAX] = msg->message.shutter.timestamp;
+        last_shutter_timestamp = msg->message.shutter.timestamp;
         break;
 
     default:
@@ -141,14 +158,15 @@ static void process_capture_result(
         const camera3_capture_result *result)
 {
     const native_handle_t* nh = NULL;
-    const camera3_stream_buffer_t *buffer = result->output_buffers;
+    const camera3_stream_buffer_t *buffer = NULL;
     int num;
     int i;
     int found = 0;
     int size1, size2;
 
     CDBG_INFO("%p num_output_buffers %d num_streams %d", cb, result->num_output_buffers, num_streams);
-    if (result->num_output_buffers == 1) {
+    for (uint32_t b_i = 0; b_i < result->num_output_buffers; b_i++) {
+        buffer = &result->output_buffers[b_i];
         if (buffer && buffer->buffer) {
             nh = *((const native_handle_t**)buffer->buffer);
         } else {
@@ -160,7 +178,7 @@ static void process_capture_result(
         found = 0;
         for (i = 0; i < num_streams; i++) {
           for (num = 0; num < stream_buffer_allocated[i]; num++) {
-            CDBG_ERROR("num_streams %d, i %d, num %d, stream_buffer_allocated %d. %d %d",
+            CDBG_LOW("num_streams %d, i %d, num %d, stream_buffer_allocated %d. %d %d",
                 num_streams, i, num, stream_buffer_allocated[i], nh->data[0], stream_handle[i][num]->data[0]);
             if (nh->data[0] == stream_handle[i][num]->data[0]) { //cn: shared fd
                 found = 1;
@@ -175,10 +193,10 @@ static void process_capture_result(
             CDBG_INFO("Frame num %d frame_number %d width:%d and height:%d format:%d",
                     num,
                     result->frame_number,
-                    result->output_buffers->stream->width,
-                    result->output_buffers->stream->height,
-                    result->output_buffers->stream->format);
-            CDBG_INFO("Taking lock before signalling the condition");
+                    buffer->stream->width,
+                    buffer->stream->height,
+                    buffer->stream->format);
+            CDBG_LOW("Taking lock before signalling the condition");
             pthread_mutex_lock(&post_lock[i]);
             size1 = post_process_queue[i].size();
             post_process_queue[i].push_back(std::pair<uint32_t, uint32_t>(result->frame_number, num));
@@ -195,8 +213,6 @@ static void process_capture_result(
             pthread_cond_signal(&cond_fq[i]);
             pthread_mutex_unlock(&lock_fq[i]);
         }
-    } else {
-        // calls without buffers
     }
 }
 
@@ -257,6 +273,13 @@ native_handle_t *allocate_buffers(int stream_id, int width, int height,
         CDBG_ERROR("Ion dev open failed %s\n", strerror(errno));
         return NULL;
     }
+
+#if 0
+    if (fmt == CAM_MIPI_RAW8) {
+        width = 320;
+        height = 240;
+    }
+#endif
 
     stride = PAD_TO_SIZE(width, CAM_PAD_TO_4);
     if (fmt == CAM_MIPI_RAW10) {
@@ -343,29 +366,18 @@ void post_process(camera3_device_t *device, test_config_t config, int stream_id)
     camera_meminfo_t *mem;
     camera_meminfo_t *raw;
     size_t size;
-    char ext[100];
-    char fname[1000];
+    char ext[10];
+    char fname[100];
     void *data;
     //static int frame_number = 0;
     std::pair<uint32_t, uint32_t> frame_index_pair;
     //int flag = 0;
     static int cnt=0;
-    int w, h;
     raw = NULL;
     CDBG_LOW("camera_id %d stream_id %d", config.camera_id, stream_id);
 
-    if (config.run_mode == YUV_ONLY) {
-        w = CAM_YUV_PREVIEW_WIDTH;
-        h = CAM_YUV_PREVIEW_HEIGHT;
-    } else {
-        if (config.camera_id  == CAM_FRONT) {
-            w = CAM_FRONT_RAW_PREVIEW_WIDTH;
-            h = CAM_FRONT_RAW_PREVIEW_HEIGHT;
-        } else {
-            w = CAM_BACK_RAW_PREVIEW_WIDTH;
-            h = CAM_BACK_RAW_PREVIEW_HEIGHT;
-        }
-    }
+    uint64_t cur_timestamp;
+    struct timespec   ts;
 
     while(g_is_running) {
         pthread_mutex_lock(&post_lock[stream_id]);
@@ -387,26 +399,35 @@ void post_process(camera3_device_t *device, test_config_t config, int stream_id)
         size = mem->size;
 
         if (config.run_mode == YUV_ONLY) {
-            sprintf(ext, "yuv");
+            snprintf(ext, sizeof(ext), "yuv");
             data = mem->vaddr;
         } else if (config.run_mode == RAW_ONLY){
-            sprintf(ext, "raw");
+            snprintf(ext, sizeof(ext), "raw");
             raw = stream_rawmeminfo[stream_id][num];
             data = mem->vaddr;
-        } else if (config.run_mode == RAW_YUV) {
+        } else if (config.run_mode == RAW_YUV || config.run_mode == RAW_YUV2) {
             if (stream_id != 0) {
-                sprintf(ext, "yuv");
+                snprintf(ext, sizeof(ext), "yuv");
                 data = mem->vaddr;
             } else {
-                sprintf(ext, "raw");
+                snprintf(ext, sizeof(ext), "raw");
                 raw = stream_rawmeminfo[stream_id][num];
                 data = mem->vaddr;
             }
         }
         if (cnt <= config.dump_num) {
-          sprintf(fname, "/data/misc/camera/cam%d_fun%d_sid%d_%dx%d_fid%d.%s",
-            config.camera_id, config.func, stream_id, w, h, frame_index_pair.first, ext);
+          snprintf(fname, sizeof(fname), "/data/misc/camera/cam%d_fun%d_fid%d_sid%d_%dx%d_%lld.%s",
+            config.camera_id, config.func, frame_index_pair.first, stream_id,
+            g_size[config.camera_id][stream_id].width, g_size[config.camera_id][stream_id].height,
+            ts_shutter[frame_index_pair.first % TS_MAX], ext);
           CDBG_INFO("stream_id %d, save to %s\n", stream_id, fname);
+          if( clock_gettime(CLOCK_MONOTONIC, &ts) < 0) {
+            CDBG_ERROR("Error reading the monotonic time clock, cannot use timed wait");
+          }
+          cur_timestamp = (uint64_t)ts.tv_sec * 1000000000 + (uint64_t)ts.tv_nsec;
+          CDBG_INFO("CAMERA%d_SAVE, cur_timestamp %lld. frame id %d timestamp %lld. delta%d: %d ms\n",
+            stream_id, cur_timestamp, frame_index_pair.first, ts_shutter[frame_index_pair.first % TS_MAX],
+            stream_id, (int)(cur_timestamp - ts_shutter[frame_index_pair.first % TS_MAX])/1000000);
           if (config.dump_frame) {
               FILE* fd = fopen(fname, "w");
               CDBG_LOW("wrote %d bytes to %s\n", size, fname);
@@ -465,6 +486,11 @@ void request_process_thread(camera3_device_t *device, test_config_t config) {
             mlist_streamBuffs[stream_id].acquire_fence = -1;
             frame_request.output_buffers = mlist_streamBuffs;
             frame_request.num_output_buffers++;
+            if (minAvaiablebufCnt[stream_id] > qsize) {
+              minAvaiablebufCnt[stream_id] = qsize;
+              CDBG_LOW("camera_id %d stream_id %d. min available buffer :%d ",
+                config.camera_id, stream_id, minAvaiablebufCnt[stream_id]);
+            }
 
             CDBG_LOW("camera_id %d stream_id %d Calling request frame id %d. frame_queue index %d. available buffer :%d ",
                 config.camera_id, stream_id, frame_request.frame_number, buf_idx, qsize);
@@ -499,8 +525,10 @@ static inline void print_usage(int code)
         "                    - PIXRDI\n"
         "  -d [num]        dump frames\n"
         "                     num : the number of dump frames (default:%d)\n"
+        "  -s [num]        stream number\n"
+        "                     num : the number of streams (default:%d), no less than 1.\n"
         "  -h              print this message\n"
-        , DUMP_CNT);
+        , DUMP_CNT, DEFAULT_STREAM_NUM);
     exit(code);
 }
 
@@ -512,7 +540,7 @@ int parse_command_line(int argc, char* argv[], test_config_t *cfg)
         return -1;
     }
 
-    while ((c = getopt(argc, argv, "hf:m:d::t:")) != -1) {
+    while ((c = getopt(argc, argv, "hf:m:d::t:s:")) != -1) {
         switch (c) {
         case 'f':
             {
@@ -540,10 +568,14 @@ int parse_command_line(int argc, char* argv[], test_config_t *cfg)
                 string str(optarg);
                 if (str == "PIX") {
                     cfg->run_mode = YUV_ONLY;
+                    cfg->run_stream = 1;
                 } else if (str == "RDI") {
                     cfg->run_mode = RAW_ONLY;
+                    cfg->run_stream = 1;
                 } else if (str == "PIXRDI") {
                     cfg->run_mode = RAW_YUV;
+                } else if (str == "PIXRDI2") {
+                    cfg->run_mode = RAW_YUV2;
                 } else {
                     printf("error in usage -m.\n");
                     abort();
@@ -556,6 +588,14 @@ int parse_command_line(int argc, char* argv[], test_config_t *cfg)
                 cfg->dump_num = atoi(optarg);
             if (!cfg->dump_num)
                 cfg->dump_num = DUMP_CNT;
+            break;
+        case 's':
+            cfg->run_stream = atoi(optarg);
+            if (cfg->run_stream > DEFAULT_STREAM_NUM || cfg->run_stream < 1)
+            {
+                printf("error in usage -s.\n");
+                abort();
+            }
             break;
         case 't':
             cfg->run_time = atoi(optarg);
@@ -573,8 +613,7 @@ int parse_command_line(int argc, char* argv[], test_config_t *cfg)
 
 int main(int argc, char* argv[]) {
     int rc = 0;
-    int w, h = 0;
-    int i, j;
+    int i, j, idx;
     int numCam = 0;
     camera3_device_t *device;
     //android::CameraMetadata meta;
@@ -609,13 +648,14 @@ int main(int argc, char* argv[]) {
     config.dump_frame = false;
     config.dump_num = DUMP_CNT;
     config.run_time = 0;
+    config.run_stream = 1;
 
     parse_command_line(argc, argv, &config);
 
-    printf("run with func %d, camera_id %d, run_mode %d, dump_frame %d, dump_num %d, run_time %d.\n",
-        config.func, config.camera_id, config.run_mode, config.dump_frame, config.dump_num, config.run_time);
-    CDBG_INFO("run with func %d, camera_id %d, run_mode %d, dump_frame %d, dump_num %d, run_time %d",
-        config.func, config.camera_id, config.run_mode, config.dump_frame, config.dump_num, config.run_time);
+    printf("run with func %d, camera_id %d, run_mode %d, dump_frame %d, dump_num %d, run_time %d, run_stream %d\n",
+        config.func, config.camera_id, config.run_mode, config.dump_frame, config.dump_num, config.run_time, config.run_stream);
+    CDBG_INFO("run with func %d, camera_id %d, run_mode %d, dump_frame %d, dump_num %d, run_time %d, run_stream %d",
+        config.func, config.camera_id, config.run_mode, config.dump_frame, config.dump_num, config.run_time, config.run_stream);
 
     if (config.func < 0 || config.func > CAM_FUNC_MAX) {
         printf("Error config of camera func.\n");
@@ -627,6 +667,10 @@ int main(int argc, char* argv[]) {
     }
     if (config.run_mode < 0 || config.camera_id > RUN_MODE_MAX) {
         printf("Error config of camera id.\n");
+        return -1;
+    }
+    if (config.run_stream < 1 || config.run_stream > DEFAULT_STREAM_NUM) {
+        printf("Error config of camera stream numbers.\n");
         return -1;
     }
 
@@ -689,66 +733,101 @@ int main(int argc, char* argv[]) {
 
     CDBG_INFO("Camera %d Init Successs", config.camera_id);
 
-    if (config.run_mode == YUV_ONLY) {
-        w = CAM_YUV_PREVIEW_WIDTH;
-        h = CAM_YUV_PREVIEW_HEIGHT;
-    } else {
-        if (config.camera_id == CAM_FRONT) {
-            w = CAM_FRONT_RAW_PREVIEW_WIDTH;
-            h = CAM_FRONT_RAW_PREVIEW_HEIGHT;
-        } else {
-            w = CAM_BACK_RAW_PREVIEW_WIDTH;
-            h = CAM_BACK_RAW_PREVIEW_HEIGHT;
-        }
-    }
-
     //stream init
     num_streams = 0;
+
     if (config.run_mode == YUV_ONLY) {
-        g_size[config.camera_id][num_streams].fmt = CAM_YUV_NV12;
-        g_size[config.camera_id][num_streams].width = CAM_YUV_PREVIEW_WIDTH;
-        g_size[config.camera_id][num_streams].height = CAM_YUV_PREVIEW_HEIGHT;
+        g_size[config.camera_id][num_streams].fmt = g_size[config.camera_id][1].fmt;
+        g_size[config.camera_id][num_streams].width = g_size[config.camera_id][1].width;
+        g_size[config.camera_id][num_streams].height = g_size[config.camera_id][1].height;
         list_stream[num_streams] = init_stream(CAMERA3_STREAM_OUTPUT, config.camera_id,
-            g_size[config.camera_id][num_streams].width, g_size[config.camera_id][num_streams].height,
+            g_size[config.camera_id][num_streams].width,
+            g_size[config.camera_id][num_streams].height,
             0, HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED, HAL3_DATASPACE_UNKNOWN);
+        CDBG_INFO("stream: only YUV config for camera id %d stream id %d size %dx%d",
+          config.camera_id, num_streams,
+          g_size[config.camera_id][num_streams].width,
+          g_size[config.camera_id][num_streams].height);
         num_streams++;
 
         stream_config = configure_stream(CAMERA3_STREAM_CONFIGURATION_NORMAL_MODE, num_streams);
         stream_config.streams[0] = list_stream[0];
-        CDBG_INFO("stream: only YUV config for camera id %d size %dx%d num_streams %d",
-            config.camera_id, w, h, num_streams);
+
+        if (config.run_stream != num_streams) {
+            config.run_stream = num_streams;
+            CDBG_INFO("stream: only %d stream could run in this case", num_streams);
+        }
 
     } else if (config.run_mode == RAW_ONLY) {
         list_stream[num_streams] = init_stream(CAMERA3_STREAM_OUTPUT, config.camera_id,
-            g_size[config.camera_id][num_streams].width, g_size[config.camera_id][num_streams].height,
+            g_size[config.camera_id][num_streams].width,
+            g_size[config.camera_id][num_streams].height,
             0, HAL_PIXEL_FORMAT_RAW_OPAQUE, HAL3_DATASPACE_ARBITRARY);
+        CDBG_INFO("stream: only RAW config for camera id %d stream id %d size %dx%d",
+          config.camera_id, num_streams,
+          g_size[config.camera_id][num_streams].width,
+          g_size[config.camera_id][num_streams].height);
         num_streams++;
 
-        stream_config = configure_stream(QCAMERA3_VENDOR_STREAM_CONFIGURATION_RAW_ONLY_MODE, num_streams);
+        stream_config = configure_stream(QCAMERA3_VENDOR_STREAM_CONFIGURATION_RAW_ONLY_MODE,
+            num_streams);
         stream_config.streams[0] = list_stream[0];
-        CDBG_INFO("stream: only RAW config for camera id %d size %dx%d num_streams %d",
-            config.camera_id, w, h, num_streams);
+        if (config.run_stream != num_streams) {
+            config.run_stream = num_streams;
+            CDBG_INFO("stream: only %d stream could run in this case", num_streams);
+        }
 
     } else if (config.run_mode == RAW_YUV) { // RAW + YUV
         list_stream[num_streams] = init_stream(CAMERA3_STREAM_OUTPUT, config.camera_id,
-            g_size[config.camera_id][num_streams].width, g_size[config.camera_id][num_streams].height,
+            g_size[config.camera_id][num_streams].width,
+            g_size[config.camera_id][num_streams].height,
             0, HAL_PIXEL_FORMAT_RAW_OPAQUE, HAL3_DATASPACE_ARBITRARY);
+        CDBG_INFO("stream: RAW+YUV config for camera id %d stream id %d size %dx%d",
+          config.camera_id, num_streams,
+          g_size[config.camera_id][num_streams].width,
+          g_size[config.camera_id][num_streams].height);
         num_streams++;
 
-        list_stream[num_streams] = init_stream(CAMERA3_STREAM_OUTPUT, config.camera_id,
-            g_size[config.camera_id][num_streams].width, g_size[config.camera_id][num_streams].height,
-            0, HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED, HAL3_DATASPACE_UNKNOWN);
-        num_streams++;
+        if (config.run_stream > 1) {
+            list_stream[num_streams] = init_stream(CAMERA3_STREAM_OUTPUT, config.camera_id,
+                g_size[config.camera_id][num_streams].width,
+                g_size[config.camera_id][num_streams].height,
+                0, HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED, HAL3_DATASPACE_UNKNOWN);
+            CDBG_INFO("stream: RAW+YUV config for camera id %d stream id %d size %dx%d",
+              config.camera_id, num_streams,
+              g_size[config.camera_id][num_streams].width,
+              g_size[config.camera_id][num_streams].height);
+            num_streams++;
+        }
 
-        list_stream[num_streams] = init_stream(CAMERA3_STREAM_OUTPUT, config.camera_id,
-            g_size[config.camera_id][num_streams].width, g_size[config.camera_id][num_streams].height,
-            FLAGS_VIDEO_ENCODER, HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED, HAL3_DATASPACE_UNKNOWN);
-        num_streams++;
+        if (config.run_stream > 2) {
+            list_stream[num_streams] = init_stream(CAMERA3_STREAM_OUTPUT, config.camera_id,
+                g_size[config.camera_id][num_streams].width,
+                g_size[config.camera_id][num_streams].height,
+                FLAGS_VIDEO_ENCODER, HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED, HAL3_DATASPACE_UNKNOWN);
+            CDBG_INFO("stream: RAW+YUV config for camera id %d stream id %d size %dx%d",
+              config.camera_id, num_streams,
+              g_size[config.camera_id][num_streams].width,
+              g_size[config.camera_id][num_streams].height);
+            num_streams++;
+        }
 
-        list_stream[num_streams] = init_stream(CAMERA3_STREAM_OUTPUT, config.camera_id,
-            g_size[config.camera_id][num_streams].width, g_size[config.camera_id][num_streams].height,
-            0, HAL_PIXEL_FORMAT_BLOB, HAL3_DATASPACE_UNKNOWN);
-        num_streams++;
+        if (config.run_stream > 3) {
+            list_stream[num_streams] = init_stream(CAMERA3_STREAM_OUTPUT, config.camera_id,
+                g_size[config.camera_id][num_streams].width,
+                g_size[config.camera_id][num_streams].height,
+                0, HAL_PIXEL_FORMAT_BLOB, HAL3_DATASPACE_UNKNOWN);
+            CDBG_INFO("stream: RAW+YUV config for camera id %d stream id %d size %dx%d",
+              config.camera_id, num_streams,
+              g_size[config.camera_id][num_streams].width,
+              g_size[config.camera_id][num_streams].height);
+            num_streams++;
+        }
+
+        if (config.run_stream != num_streams) {
+            config.run_stream = num_streams;
+            CDBG_INFO("stream: only %d stream could run in this case", num_streams);
+        }
 
         stream_config = configure_stream(CAMERA3_STREAM_CONFIGURATION_NORMAL_MODE, num_streams);
 
@@ -756,8 +835,55 @@ int main(int argc, char* argv[]) {
           stream_config.streams[i] = list_stream[i];
         }
 
-        CDBG_INFO("stream: RAW+YUV config for camera id %d size %dx%d num_streams %d",
-          config.camera_id, w, h, num_streams);
+    } else if (config.run_mode == RAW_YUV2) { // RAW + callback
+        idx = (config.camera_id == CAM_BACK) ? 0 : 0;
+        list_stream[num_streams] = init_stream(CAMERA3_STREAM_OUTPUT, config.camera_id,
+            g_size[config.camera_id][idx].width,
+            g_size[config.camera_id][idx].height,
+            0, HAL_PIXEL_FORMAT_RAW_OPAQUE, HAL3_DATASPACE_ARBITRARY);
+        CDBG_INFO("stream: RAW+YUV config for camera id %d stream id %d size %dx%d",
+          config.camera_id, num_streams,
+          g_size[config.camera_id][idx].width,
+          g_size[config.camera_id][idx].height);
+        num_streams++;
+
+        if (config.run_stream > 1) {
+            idx = (config.camera_id == CAM_BACK) ? 1 : 1;
+            list_stream[num_streams] = init_stream(CAMERA3_STREAM_OUTPUT, config.camera_id,
+                g_size[config.camera_id][idx].width,
+                g_size[config.camera_id][idx].height,
+                0, HAL_PIXEL_FORMAT_YCbCr_420_888, HAL3_DATASPACE_UNKNOWN);
+            CDBG_INFO("stream: RAW+YUV config for camera id %d stream id %d size %dx%d",
+              config.camera_id, num_streams,
+              g_size[config.camera_id][idx].width,
+              g_size[config.camera_id][idx].height);
+            num_streams++;
+        }
+
+        if (config.run_stream > 2) {
+            idx = (config.camera_id == CAM_BACK) ? 2 : 2;
+            list_stream[num_streams] = init_stream(CAMERA3_STREAM_OUTPUT, config.camera_id,
+                g_size[config.camera_id][idx].width,
+                g_size[config.camera_id][idx].height,
+                0, HAL_PIXEL_FORMAT_YCbCr_420_888, HAL3_DATASPACE_UNKNOWN);
+            CDBG_INFO("stream: RAW+YUV config for camera id %d stream id %d size %dx%d",
+              config.camera_id, num_streams,
+              g_size[config.camera_id][idx].width,
+              g_size[config.camera_id][idx].height);
+            num_streams++;
+        }
+
+        if (config.run_stream != num_streams) {
+            config.run_stream = num_streams;
+            CDBG_INFO("stream: only %d stream could run in this case", num_streams);
+        }
+
+        stream_config = configure_stream(CAMERA3_STREAM_CONFIGURATION_NORMAL_MODE, num_streams);
+
+        for (i = 0; i < num_streams; i++) {
+          stream_config.streams[i] = list_stream[i];
+        }
+
     }
 
     rc = device->ops->configure_streams(device, &stream_config);
@@ -768,6 +894,7 @@ int main(int argc, char* argv[]) {
 
     for (i = 0; i < num_streams; i++) {
       bufCnt[i] = stream_config.streams[i]->max_buffers;
+      minAvaiablebufCnt[i] = stream_config.streams[i]->max_buffers;
       CDBG_INFO("stream[%d] config successfull max buffer size = %d",
         i, stream_config.streams[i]->max_buffers);
     }
