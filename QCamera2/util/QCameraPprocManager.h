@@ -124,6 +124,7 @@ private:
     ~QCameraHALPPManager();
     static void *dataProcessRoutine(void *pData);
     void getHalPPOutputBuffer(uint32_t frameIndex);
+    static int instance_count;
 
 protected:
     static void releaseDataCb(void *pData, void *pUserData);

@@ -39,6 +39,7 @@ using namespace android;
 namespace qcamera {
 
 QCameraHALPPManager* QCameraHALPPManager::s_pInstance = NULL;
+int QCameraHALPPManager::instance_count = 0;
 
 /*===========================================================================
  * FUNCTION   : QCameraHALPPManager
@@ -81,8 +82,11 @@ QCameraHALPPManager::~QCameraHALPPManager()
 void QCameraHALPPManager::release() {
     Mutex::Autolock lock(mLock);
     if (s_pInstance) {
-        delete s_pInstance;
-        s_pInstance = NULL;
+        LOGI("E s_pInstance->instance_count %d", s_pInstance->instance_count);
+        if(--s_pInstance->instance_count == 0){
+            delete s_pInstance;
+            s_pInstance = NULL;
+        }
     }
 }
 
@@ -90,9 +94,10 @@ QCameraHALPPManager* QCameraHALPPManager::getInstance() {
     if (!s_pInstance) {
         s_pInstance = new QCameraHALPPManager();
     }
+    s_pInstance->instance_count++;
+    LOGI("E s_pInstance->instance_count %d", s_pInstance->instance_count);
     return s_pInstance;
 }
-
 
 /*===========================================================================
  * FUNCTION   : init
