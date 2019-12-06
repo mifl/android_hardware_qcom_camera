@@ -131,12 +131,25 @@ typedef enum {
 
 #define IS_SNAP_ZSL (mHALZSL == CAM_HAL3_ZSL_TYPE_SNAPSHOT)
 
+#define HW_RECOVERY_PROP "persist.vendor.camera.internal.restart"
+#define DEFAULT_VALUE_HW_RECOVERY_PROP "1"
+
 extern volatile uint32_t gCamHal3LogLevel;
 
 class QCamera3MetadataChannel;
 class QCamera3PicChannel;
 class QCamera3HeapMemory;
 class QCamera3Exif;
+enum {
+    NONE,
+    INITIATE_HW_RECOVERY,
+}deferred_task_type_t;
+
+typedef struct {
+    uint32_t msg_type;
+    void *data;
+    void *owner;
+} DeferredTask;
 
 typedef struct {
     camera3_stream_t *stream;
@@ -260,6 +273,7 @@ public:
     static void internalMetaCb(mm_camera_super_buf_t *metadata,
                 camera3_stream_buffer_t *buffer, uint32_t frame_number,
                 bool isInputBuffer, void *userdata);
+    static void* deferredWork(void* data);
 
     int initialize(const camera3_callback_ops_t *callback_ops);
     int configureStreams(camera3_stream_configuration_t *stream_list);
@@ -274,6 +288,7 @@ public:
     int32_t orchestrateMultiFrameCapture(camera3_capture_request_t *request);
     int32_t orchestrateMFCRawCapture(camera3_capture_request_t *request);
     int32_t orchestrateAdvancedCapture(camera3_capture_request_t *request, bool &isAdvancedCapture);
+    int32_t createDeferredWork(DeferredTask task);
 
     void dump(int fd);
     int flushPerf();
@@ -467,7 +482,7 @@ private:
     Vector<uint32_t> getPhyIdListForCameraId(uint32_t cameraId);
     int validateStreamsPhyIds(camera3_stream_configuration_t *streamList);
     void setDCFeature(cam_feature_mask_t& feature_mask,
-            cam_stream_type_t stream_type);
+            cam_stream_type_t stream_type, cam_dimension_t stream_dim);
     void updateFpsInPreviewBuffer(metadata_buffer_t *metadata, uint32_t frame_number);
     void updateTimeStampInPendingBuffers(uint32_t frameNumber, nsecs_t timestamp);
 
@@ -528,7 +543,11 @@ private:
     bool needZSLCapture(const camera3_capture_request_t *request);
     int32_t addZSLChannel();
     static void zsl_channel_cb(mm_camera_super_buf_t *recvd_frame, void *userdata);
-
+    int getConfiguredSATStreamDim(cam_dimension_t &dim);
+    bool isPreviewSATEnabled();
+    bool isHWRecoveryEnabled();
+    int doInternalRestart();
+    int initiateRecovery(bool defered = true);
     camera3_device_t   mCameraDevice;
     uint32_t           mCameraId;
     uint32_t           mBlurLevel;
@@ -828,8 +847,15 @@ private:
     uint8_t mQuadraCfaStage;
     bool m_bQuadraSizeConfigured;
     int8_t m_ppChannelCnt;
-    camera3_stream_configuration_t mStreamList;
+
+    typedef struct {
+        camera3_stream_configuration_t streamList;
+        uint32_t *usage;
+    }stream_configuration_t;
+
+    stream_configuration_t mStreamList;
     pthread_mutex_t mRemosaicLock;
+    pthread_mutex_t mRecoveryLock;
 
     //UDCF
     bool mDualCamera;
@@ -858,6 +884,9 @@ private:
 
     //quadra
     camera3_capture_request_t **quad_req;
+    bool m_bRecoveryDone;
+    CameraMetadata mSavedParams;
+    int8_t m_fwAeMode;
 };
 
 }; // namespace qcamera
