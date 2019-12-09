@@ -7790,16 +7790,6 @@ QCamera3HardwareInterface::translateCbUrgentMetadataToResultMetadata
         camMetadata.update(ANDROID_SENSOR_FRAME_DURATION, sensorFameDuration, 1);
     }
 
-    IF_META_AVAILABLE(uint32_t, faceDetectMode, CAM_INTF_META_STATS_FACEDETECT_MODE, metadata) {
-        int val = lookupFwkName(FACEDETECT_MODES_MAP, METADATA_MAP_SIZE(FACEDETECT_MODES_MAP),
-                *faceDetectMode);
-        if (NAME_NOT_FOUND != val) {
-            uint8_t fwk_faceDetectMode = (uint8_t)val;
-            camMetadata.update(ANDROID_STATISTICS_FACE_DETECT_MODE, &fwk_faceDetectMode, 1);
-            LOGD("urgent Metadata : faceDetectMode = %d", fwk_faceDetectMode);
-        }
-    }
-
     uint8_t fwk_aeMode = ANDROID_CONTROL_AE_MODE_OFF;
     uint32_t aeMode = CAM_AE_MODE_MAX;
     int32_t flashMode = CAM_FLASH_MODE_MAX;
