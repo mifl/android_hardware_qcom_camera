@@ -1375,7 +1375,7 @@ void get_sensor_info()
             continue;
         }
 
-        unsigned int num_entities = 1;
+        unsigned int num_entities = 0;
         while (1) {
             struct media_entity_desc entity;
             uint32_t temp;
@@ -1384,15 +1384,16 @@ void get_sensor_info()
             uint8_t is_yuv;
 
             memset(&entity, 0, sizeof(entity));
-            entity.id = num_entities++;
+            entity.id = num_entities | MEDIA_ENT_ID_FLAG_NEXT;
             rc = ioctl(dev_fd, MEDIA_IOC_ENUM_ENTITIES, &entity);
             if (rc < 0) {
                 CDBG("Done enumerating media entities\n");
                 rc = 0;
                 break;
             }
-            if(entity.type == MEDIA_ENT_T_V4L2_SUBDEV &&
-                entity.group_id == MSM_CAMERA_SUBDEV_SENSOR) {
+            num_entities = entity.id;
+            if(mm_camera_util_match_subdev_type(entity,MSM_CAMERA_SUBDEV_SENSOR
+               ,MEDIA_ENT_T_V4L2_SUBDEV)) {
                 temp = entity.flags >> 8;
                 facing = (temp & 0xFF00) >> 8;
                 if (ramSize && ramSize < MAX_RAM_SIZE && (facing == 1))
@@ -1531,7 +1532,7 @@ uint8_t get_num_of_cameras()
     pthread_mutex_lock(&g_intf_lock);
 
     while (1) {
-        uint32_t num_entities = 1U;
+        uint32_t num_entities = 0U;
         char dev_name[32];
 
         snprintf(dev_name, sizeof(dev_name), "/dev/media%d", num_media_devices);
@@ -1558,7 +1559,7 @@ uint8_t get_num_of_cameras()
         while (1) {
             struct media_entity_desc entity;
             memset(&entity, 0, sizeof(entity));
-            entity.id = num_entities++;
+            entity.id = num_entities | MEDIA_ENT_ID_FLAG_NEXT;
             CDBG_ERROR("entity id %d", entity.id);
             rc = ioctl(dev_fd, MEDIA_IOC_ENUM_ENTITIES, &entity);
             if (rc < 0) {
@@ -1566,10 +1567,11 @@ uint8_t get_num_of_cameras()
                 rc = 0;
                 break;
             }
+            num_entities = entity.id;
             CDBG_ERROR("entity name %s type %d group id %d",
                 entity.name, entity.type, entity.group_id);
-            if (entity.type == MEDIA_ENT_T_V4L2_SUBDEV &&
-                entity.group_id == MSM_CAMERA_SUBDEV_SENSOR_INIT) {
+            if (mm_camera_util_match_subdev_type(entity,
+                    MSM_CAMERA_SUBDEV_SENSOR_INIT,MEDIA_ENT_T_V4L2_SUBDEV)) {
                 snprintf(subdev_name, sizeof(dev_name), "/dev/%s", entity.name);
                 break;
             }
@@ -1596,7 +1598,7 @@ uint8_t get_num_of_cameras()
 
     num_media_devices = 0;
     while (1) {
-        uint32_t num_entities = 1U;
+        uint32_t num_entities = 0U;
         char dev_name[32];
 
         snprintf(dev_name, sizeof(dev_name), "/dev/media%d", num_media_devices);
@@ -1625,14 +1627,16 @@ uint8_t get_num_of_cameras()
         while (1) {
             struct media_entity_desc entity;
             memset(&entity, 0, sizeof(entity));
-            entity.id = num_entities++;
+            entity.id = num_entities | MEDIA_ENT_ID_FLAG_NEXT;
             rc = ioctl(dev_fd, MEDIA_IOC_ENUM_ENTITIES, &entity);
             if (rc < 0) {
                 CDBG("Done enumerating media entities\n");
                 rc = 0;
                 break;
             }
-            if(entity.type == MEDIA_ENT_T_DEVNODE_V4L && entity.group_id == QCAMERA_VNODE_GROUP_ID) {
+            num_entities = entity.id;
+            if(mm_camera_util_match_subdev_type(entity, QCAMERA_VNODE_GROUP_ID,
+                    MEDIA_ENT_T_DEVNODE_V4L)) {
                 strlcpy(g_cam_ctrl.video_dev_name[num_cameras],
                      entity.name, sizeof(entity.name));
                 break;
@@ -1654,6 +1658,18 @@ uint8_t get_num_of_cameras()
     pthread_mutex_unlock(&g_intf_lock);
     CDBG("%s: num_cameras=%d\n", __func__, (int)g_cam_ctrl.num_cam);
     return(uint8_t)g_cam_ctrl.num_cam;
+}
+
+static int mm_camera_util_match_subdev_49(struct media_entity_desc entity,
+     uint32_t gid, uint32_t type __unused)
+{
+     return (entity.type == gid);
+}
+
+int mm_camera_util_match_subdev_type(struct media_entity_desc entity,
+     uint32_t gid, uint32_t type)
+{
+     return mm_camera_util_match_subdev_49(entity, gid, type);
 }
 
 struct camera_info *get_cam_info(uint32_t camera_id)
