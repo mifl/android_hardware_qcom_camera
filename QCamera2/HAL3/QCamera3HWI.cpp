@@ -627,6 +627,8 @@ QCamera3HardwareInterface::QCamera3HardwareInterface(uint32_t cameraId,
     mSessionId = 0;
     mHFRMode = CAM_HFR_MODE_OFF;
 #endif
+    sync_counter =0;
+
 }
 
 /*===========================================================================
@@ -6257,10 +6259,21 @@ int32_t QCamera3HardwareInterface::switchStreamConfigInternal(__unused uint32_t 
                             mCameraHandle->ops, raw_dim, &gCamCapability[mCameraId]->padding_info,
                             this, CAM_QCOM_FEATURE_NONE,m_bInSensorQCFA);
 
+    if (mEnableRawDump && m_bInSensorQCFA){
+      cam_feature_mask_t RawDumpFeatureMask = CAM_QCOM_FEATURE_NONE;
+      setPAAFSupport(RawDumpFeatureMask, CAM_STREAM_TYPE_RAW,
+             gCamCapability[mCameraId]->color_arrangement);
+      mRawDumpChannel = new QCamera3RawDumpChannel(mCameraHandle->camera_handle,mChannelHandle,
+                           mCameraHandle->ops,raw_dim,&gCamCapability[mCameraId]->padding_info,
+                           this, CAM_QCOM_FEATURE_NONE);
+    }
+
     /* send meta stream info */
     cam_stream_size_info_t stream_sz_info;
     memset(&stream_sz_info, 0, sizeof(cam_stream_size_info_t));
     stream_sz_info.num_streams = 1;
+    if(m_bInSensorQCFA && mEnableRawDump)
+      stream_sz_info.num_streams = 2;
     stream_sz_info.stream_sizes[0] = raw_dim;
 
     if(m_bInSensorQCFA)
@@ -6269,6 +6282,13 @@ int32_t QCamera3HardwareInterface::switchStreamConfigInternal(__unused uint32_t 
         stream_sz_info.type[0] = CAM_STREAM_TYPE_RAW;
 
     stream_sz_info.postprocess_mask[0] = CAM_QCOM_FEATURE_NONE;
+
+    if(m_bInSensorQCFA && mEnableRawDump)
+    {
+      stream_sz_info.stream_sizes[1] = raw_dim;
+      stream_sz_info.type[1] = CAM_STREAM_TYPE_RAW;
+      stream_sz_info.postprocess_mask[1] = CAM_QCOM_FEATURE_NONE;
+    }
 
     clear_metadata_buffer(mParameters);
     ADD_SET_PARAM_ENTRY_TO_BATCH(mParameters, CAM_INTF_PARM_HAL_VERSION, CAM_HAL_V3);
@@ -6286,7 +6306,10 @@ int32_t QCamera3HardwareInterface::switchStreamConfigInternal(__unused uint32_t 
         LOGE("setBundleInfo failed %d", rc);
         return rc;
     }
-
+    if (mEnableRawDump && m_bInSensorQCFA) {
+      mRawDumpChannel->initialize(IS_TYPE_NONE);
+      mRawDumpChannel->start();
+    }
     mMetadataChannel->start();
 
     mQCFACaptureChannel->start();
@@ -6383,7 +6406,8 @@ int32_t QCamera3HardwareInterface::captureQuadraCfaFrameInternal(camera3_capture
     rc = _orchestrationDb.getFrameworkFrameNumber(request->frame_number,
             frameworkFrameNumber);
     uint32_t internalFrameNumber;
-    request->frame_number = _orchestrationDb.generateStoreInternalFrameNumber(internalFrameNumber);
+    _orchestrationDb.generateStoreInternalFrameNumber(internalFrameNumber);
+    request->frame_number = internalFrameNumber;
 
     /* 1. config streams internally and stream on */
     rc = switchStreamConfigInternal(request->frame_number);
@@ -6403,9 +6427,16 @@ int32_t QCamera3HardwareInterface::captureQuadraCfaFrameInternal(camera3_capture
     cam_stream_ID_t streamsArray;
     memset(&streamsArray, 0, sizeof(cam_stream_ID_t));
     streamsArray.num_streams = 1;
+    if(m_bInSensorQCFA && mEnableRawDump)
+      streamsArray.num_streams = 2;
     streamsArray.stream_request[0].streamID =
         mQCFACaptureChannel->getStreamID(mQCFACaptureChannel->getStreamTypeMask());
     streamsArray.stream_request[0].buf_index = CAM_FREERUN_IDX;
+    if(m_bInSensorQCFA && mEnableRawDump){
+       streamsArray.stream_request[1].streamID =
+               mRawDumpChannel->getStreamID(mRawDumpChannel->getStreamTypeMask());
+       streamsArray.stream_request[1].buf_index = CAM_FREERUN_IDX;
+    }
     setFrameParameters(request->settings, streamsArray, true, 0, mParameters, request);
     mCameraHandle->ops->set_parms(mCameraHandle->camera_handle, mParameters);
 
@@ -6642,6 +6673,12 @@ int QCamera3HardwareInterface::initiateRecovery(bool defered)
 {
     int rc = NO_ERROR;
     LOGE("%s Start internal recovery",defered? "Defered work:":"");
+    if(m_bRecoveryDone)
+    {
+        LOGE("One session already started recovery in dualcamera %d",isDualCamera());
+        return rc;
+    }
+
     if(defered){
         DeferredTask task;
         task.msg_type = INITIATE_HW_RECOVERY;
@@ -7810,6 +7847,7 @@ no_error:
     if (meta.exists(ANDROID_REQUEST_ID)) {
         request_id = meta.find(ANDROID_REQUEST_ID).data.i32[0];
         mCurrentRequestId = request_id;
+        m_bRecoveryDone = false;
         LOGD("Received request with id: %d", request_id);
     } else if (((mState == CONFIGURED )
                && (!m_bRecoveryDone))
@@ -8055,7 +8093,7 @@ no_error:
             mPerfLockMgr.acquirePerfLock(PERF_LOCK_TAKE_SNAPSHOT);
         }
     }
-    if (blob_request && mRawDumpChannel) {
+    if (blob_request && mRawDumpChannel && !m_bQuadraCfaRequest) {
         LOGD("Trigger Raw based on blob request if Raw dump is enabled");
         streamsArray.stream_request[streamsArray.num_streams].streamID =
             mRawDumpChannel->getStreamID(mRawDumpChannel->getStreamTypeMask());
@@ -8782,6 +8820,11 @@ no_error:
 
             if(!IS_MULTI_CAMERA)
             {
+               if(isDualCamera() && gCamCapability[mCameraId]->version == CAM_HAL_V3) {
+                 sync_counter++;
+                 ADD_SET_PARAM_ENTRY_TO_BATCH(mParameters,CAM_INTF_PARAM_COUNTER,sync_counter);
+                 ADD_SET_PARAM_ENTRY_TO_BATCH(mAuxParameters,CAM_INTF_PARAM_COUNTER,sync_counter);
+               }
                 rc = mCameraHandle->ops->set_parms(
                         get_main_camera_handle(mCameraHandle->camera_handle), mParameters);
                 if (rc < 0) {
